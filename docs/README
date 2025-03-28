@@ -2,3 +2,73 @@ You need doxygen and graphviz installed.
 
 Run the build-libs script first, then the project you're interested in. 
 HTMl will be generated and placed into docs/projectname.
+
+# 需要在/home/zyh/桌面/ardupilot/modules/mavlink/message_definitions/v1.0/ardupilotmega.xml添加该自定义mavlink
+<message id="11045" name="ENGINE_TELEMETRY_ONE">
+    <description>Engine telemetry data including engine state, RPM, intake parameters, sensor voltages, and other metrics.</description>
+    <field type="uint8_t" name="char_length">Character length.</field>
+    <field type="uint8_t" name="id_code">Identification code.</field>
+    <field type="uint16_t" name="reserved_2_3">Reserved bytes.</field>
+    <field type="uint16_t" name="store_def">Storage definition.</field>
+    <field type="uint32_t" name="reserved_6_9">Reserved bytes.</field>
+    <field type="uint16_t" name="engine_state">Engine running state.</field>
+    <field type="uint16_t" name="engine_rpm" units="rpm">Engine RPM.</field>
+    <field type="uint32_t" name="reserved_14_17">Reserved bytes.</field>
+    <field type="uint16_t" name="warmup_time_remaining" units="s">Time remaining for warm-up.</field>
+    <field type="uint32_t" name="reserved_20_23">Reserved bytes.</field>
+    <field type="uint16_t" name="idle_position">Idle position setting.</field>
+    <field type="uint16_t" name="interference_count">Interference pulse count.</field>
+    <field type="uint16_t" name="air_intake" units="cc">Air intake.</field>
+    <field type="uint16_t" name="air_pressure" units="Pa">Air pressure.</field>
+    <field type="uint16_t" name="rpm_error_count">RPM error count.</field>
+    <field type="uint16_t" name="injection_time" units="ms">Fuel injection time.</field>
+    <field type="uint16_t" name="ignition_angle" units="deg">Ignition timing advance angle.</field>
+    <field type="uint16_t" name="reserved_38_39">Reserved bytes.</field>
+    <field type="uint16_t" name="throttle_position_voltage" units="mV">Throttle position sensor voltage.</field>
+    <field type="uint16_t" name="battery_voltage" units="mV">Battery sensor voltage.</field>
+    <field type="uint16_t" name="afr_sensor_voltage" units="mV">Air-fuel ratio sensor voltage.</field>
+    <field type="uint16_t" name="engine_temp_voltage" units="mV">Engine temperature sensor voltage.</field>
+    <field type="uint16_t" name="intake_temp_voltage" units="mV">Intake temperature sensor voltage.</field>
+    <field type="uint16_t" name="external_pressure_voltage" units="mV">External pressure sensor voltage.</field>
+    <field type="uint16_t" name="intake_pressure_voltage" units="mV">Intake pressure sensor voltage.</field>
+    <field type="uint16_t" name="intake_quantity_voltage" units="mV">Intake quantity sensor voltage.</field>
+    <field type="int16_t" name="afr_value">Air-fuel ratio value.</field>
+    <field type="uint16_t" name="reserved_58_73">Reserved bytes.</field>
+    <field type="uint16_t" name="throttle_position" units="%">Throttle position.</field>
+    <field type="uint16_t" name="engine_cooling_temp" units="degC">Engine coolant temperature.</field>
+    <field type="uint16_t" name="ecu_battery_voltage" units="mV">ECU working voltage.</field>
+    <field type="uint16_t" name="intake_temp" units="degC">Intake air temperature.</field>
+    <field type="uint16_t" name="intake_pressure" units="Pa">Intake pressure.</field>
+    <field type="uint16_t" name="sensor_status">Sensor status flags.</field>
+    <field type="uint8_t" name="checksum">Checksum byte.</field>
+</message>
+<message id="11046" name="ENGINE_TELEMETRY_TWO">
+    <description>Engine telemetry data including engine state, RPM, intake parameters, sensor voltages, and other metrics.</description>
+    <field type="uint8_t" name="char_length">Character length.</field>
+    <field type="uint8_t" name="id_code">Identification code.</field>
+    <field type="uint64_t" name="reserved_2_9">Reserved bytes.</field>
+    <field type="uint16_t" name="intake_injection">Injection amount determined by intake volume.</field>
+    <field type="uint16_t" name="intake_correction_injection">Injection amount determined by intake correction curve.</field>
+    <field type="uint16_t" name="base_curve_injection">Injection amount determined by base characteristic curve.</field>
+    <field type="uint16_t" name="intake_pressure_injection">Injection amount determined by intake manifold pressure curve.</field>
+    <field type="uint16_t" name="base_injection">Basic injection amount.</field>
+    <field type="uint16_t" name="intake_correction_injection_2">Injection amount after intake correction.</field>
+    <field type="uint16_t" name="idle_position_injection">Injection amount determined by idle position sensor.</field>
+    <field type="uint16_t" name="warmup_curve_injection">Injection amount determined by warm-up process curve.</field>
+    <field type="uint16_t" name="acceleration_injection">Injection amount determined during acceleration.</field>
+    <field type="uint16_t" name="intake_valve_time">Intake valve opening and closing time.</field>
+    <field type="uint16_t" name="race_mode_injection">Injection amount determined by RACE mode.</field>
+    <field type="uint16_t" name="afr_control_injection">Injection amount determined by AFR controller.</field>
+    <field type="uint16_t" name="ignition_curve_advance">Ignition advance determined by ignition timing curve.</field>
+    <field type="uint16_t" name="intake_temp_advance">Ignition advance determined by intake temperature curve.</field>
+    <field type="uint16_t" name="intake_pressure_advance">Ignition advance determined by intake pressure curve.</field>
+    <field type="uint16_t" name="engine_temp_advance">Ignition advance determined by engine temperature curve.</field>
+    <field type="uint16_t" name="acceleration_advance">Ignition advance determined during acceleration.</field>
+    <field type="uint16_t" name="race_mode_advance">Ignition advance determined by RACE mode.</field>
+    <field type="uint32_t" name="total_storage_time">Total time stored over 26 instances.</field>
+    <field type="uint32_t" name="total_rotations">Total number of rotations.</field>
+    <field type="uint16_t" name="fuel_consumption" units="0.1l/h">Fuel consumption.</field>
+    <field type="uint16_t" name="error_count">Number of errors in error storage.</field>
+    <field type="uint32_t" name="reserved_58_99">Reserved bytes.</field>
+    <field type="uint16_t" name="checksum">Checksum byte.</field>
+</message>
