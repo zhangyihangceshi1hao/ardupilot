@@ -401,7 +401,7 @@ public:
     void handle_control_pps_tcp(const mavlink_message_t &msg);
 
     void send_autopilot_state_for_gimbal_device() const;
-    void handle_control_pps_tcp(const mavlink_message_t &msg);
+    
     // lock a channel, preventing use by MAVLink
     void lock(bool _lock) {
         _locked = _lock;
