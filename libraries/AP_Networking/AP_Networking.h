@@ -24,6 +24,10 @@ class SocketAPM;
 class AP_Networking
 {
 public:
+    //修改
+    // 新增：公开接口，用于触发 PPS 控制
+    bool send_receive_pps_to_port(uint8_t port_idx, int enable, int32_t frequency);
+
     friend class AP_Networking_Backend;
     friend class AP_Networking_ChibiOS;
     friend class AP_Networking_PPP;
@@ -238,7 +242,8 @@ private:
         void tcp_server_loop(void);
 
         bool send_receive(void);
-
+        //修改
+        bool send_receive_pps(int enable,int32_t frequency);
     private:
         bool init_buffers(const uint32_t size_rx, const uint32_t size_tx);
         void thread_create(AP_HAL::MemberProc);

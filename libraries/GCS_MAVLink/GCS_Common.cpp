@@ -66,7 +66,8 @@
 #include <AP_KDECAN/AP_KDECAN.h>
 #include <AP_LandingGear/AP_LandingGear.h>
 #include <AP_Landing/AP_Landing_config.h>
-
+//修改
+#include <AP_Networking/AP_Networking.h>
 #include "MissionItemProtocol_Waypoints.h"
 #include "MissionItemProtocol_Rally.h"
 #include "MissionItemProtocol_Fence.h"
@@ -3939,7 +3940,12 @@ void GCS_MAVLINK::handle_heartbeat(const mavlink_message_t &msg) const
 void GCS_MAVLINK::handle_message(const mavlink_message_t &msg)
 {
     switch (msg.msgid) {
-
+    //修改    
+    case MAVLINK_MSG_ID_PPS_TCP:
+    {
+        gcs().send_text(MAV_SEVERITY_INFO, "接收到mavlink");
+        return handle_control_pps_tcp(msg);
+    }
     case MAVLINK_MSG_ID_HEARTBEAT: {
         handle_heartbeat(msg);
         break;
@@ -4254,7 +4260,30 @@ void GCS_MAVLINK::handle_message(const mavlink_message_t &msg)
     }
 
 }
+//修改
+void GCS_MAVLINK::handle_control_pps_tcp(const mavlink_message_t &msg)
+{
+    mavlink_pps_tcp_t pps_tcp;
+    mavlink_msg_pps_tcp_decode(&msg, &pps_tcp);
 
+    gcs().send_text(MAV_SEVERITY_INFO, "解析 PPS 命令: enable=%d, freq=%" PRId32,
+                    pps_tcp.enable, pps_tcp.frequency);
+
+    AP_Networking *net = AP_Networking::get_singleton();
+    if (!net) {
+        gcs().send_text(MAV_SEVERITY_ERROR, "AP_Networking 未初始化");
+        return;
+    }
+
+    // ✅ 使用公共接口，不直接访问 private 成员
+    bool success = net->send_receive_pps_to_port(0, pps_tcp.enable, pps_tcp.frequency);
+
+    if (success) {
+        gcs().send_text(MAV_SEVERITY_INFO, "PPS 命令执行成功");
+    } else {
+        gcs().send_text(MAV_SEVERITY_ERROR, "PPS 命令执行失败");
+    }
+}
 void GCS_MAVLINK::handle_common_mission_message(const mavlink_message_t &msg)
 {
     switch (msg.msgid) {

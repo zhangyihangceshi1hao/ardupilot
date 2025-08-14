@@ -396,8 +396,12 @@ public:
     void send_high_latency2() const;
 #endif // HAL_HIGH_LATENCY2_ENABLED
     void send_uavionix_adsb_out_status() const;
-    void send_autopilot_state_for_gimbal_device() const;
 
+    //修改
+    void handle_control_pps_tcp(const mavlink_message_t &msg);
+
+    void send_autopilot_state_for_gimbal_device() const;
+    void handle_control_pps_tcp(const mavlink_message_t &msg);
     // lock a channel, preventing use by MAVLink
     void lock(bool _lock) {
         _locked = _lock;

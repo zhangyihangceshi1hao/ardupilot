@@ -243,7 +243,14 @@ uint32_t AP_Networking::convert_netmask_bitcount_to_ip(const uint32_t netmask_bi
     }
     return ~((1U<<(32U-netmask_bitcount))-1U);
 }
-
+//修改
+bool AP_Networking::send_receive_pps_to_port(uint8_t port_idx, int enable, int32_t frequency)
+{
+    if (port_idx >= AP_NETWORKING_NUM_PORTS) {
+        return false;  // 越界检查
+    }
+    return ports[port_idx].send_receive_pps(enable, frequency);
+}
 uint8_t AP_Networking::convert_netmask_ip_to_bitcount(const uint32_t netmask_ip)
 {
     uint32_t netmask_bitcount = 0;

@@ -339,10 +339,22 @@ bool AP_Networking::Port::send_receive(void)
         }
         if (ret > 0) {
             WITH_SEMAPHORE(sem);
+        //修改
+        // 打印数据接收信息
+        // for (uint32_t i = 0; i < ret; i++) {
+        //     gcs().send_text(MAV_SEVERITY_INFO, "Received Byte[%lu]: %02X", static_cast<unsigned long>(i), buf[i]);
+        // }
+
             readbuffer->write(buf, ret);
             active = true;
             have_received = true;
         }
+        //修改
+        // char *s = nullptr;
+        // gcs().send_text(MAV_SEVERITY_INFO, " sock->send((const void*)s, strlen(s));  // 发送消息");
+        // 发送消息，消息内容包含系统运行的毫秒数
+        // IGNORE_RETURN(asprintf(&s, "hello %u", unsigned(AP_HAL::millis())));
+        // sock->send((const void*)s, strlen(s));  // 发送消息
     }
 
     if (connected) {
@@ -391,6 +403,50 @@ bool AP_Networking::Port::send_receive(void)
     return active;
 }
 
+//修改
+bool AP_Networking::Port::send_receive_pps(int enable,int32_t frequency)
+{
+    //自定义mavlink数据包，获取指令后，根据指令发送命令
+    gcs().send_text(MAV_SEVERITY_INFO, "send_receive_pps.....");
+    char message[64];
+    
+    hal.console->write((uint8_t*)message, strlen(message));
+    //发送tcp数据
+    if (connected) {
+         hal.scheduler->delay(1000);
+    // gcs().send_text(MAV_SEVERITY_INFO, "以及链接.....");
+    
+    if(enable == 0){
+        hal.util->snprintf(message, sizeof(message), "TX:Stop:%" PRId32 "\r\n", frequency);
+    }
+    if(enable == 1){
+        hal.util->snprintf(message, sizeof(message), "TX:Init:%" PRId32 "\r\n", frequency);
+    }
+       // 要发送的数据
+        
+        // uint8_t buf[] = { 'T','X',':','I','n','i','t',':','x','\r','\n' }; // 手动定义，可选
+
+        // 更简单的方式：直接使用字符串字面量
+        const uint8_t* buf = reinterpret_cast<const uint8_t*>(message);
+        size_t len = strlen(message); // 注意：strlen 不包含 '\0'
+
+        // 假设 sock 是一个具有 send 方法的 TCP socket 对象（如 ESP32 的 WiFiClient，或 socket wrapper）
+        auto ret = sock->send(buf, len);
+
+        // 检查发送结果
+        if (ret == len) {
+            // 发送成功
+            return true;
+        } else {
+            // 发送失败或部分发送，处理错误
+            return false;
+        }
+    }else{
+        return false; // 如果未连接，返回 false
+    }
+   
+  
+}
 /*
   available space in outgoing buffer
  */
