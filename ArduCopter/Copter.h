@@ -72,7 +72,8 @@
 #include <AC_PrecLand/AC_PrecLand_config.h>
 #include <AP_OpticalFlow/AP_OpticalFlow.h>
 #include <AP_Winch/AP_Winch_config.h>
-
+//修改
+#include <AP_PPS_Serial/AP_PPS_Serial.h>      // PPS Serial library
 // Configuration
 #include "defines.h"
 #include "config.h"
@@ -330,7 +331,8 @@ private:
 #if AP_EXTERNAL_CONTROL_ENABLED
     AP_ExternalControl_Copter external_control;
 #endif
-
+    //修改
+    AP_PPS_Serial pps_serial; // PPS Serial library
 
     // system time in milliseconds of last recorded yaw reset from ekf
     uint32_t ekfYawReset_ms;

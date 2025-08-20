@@ -214,7 +214,8 @@ void Copter::init_ardupilot()
         // set mode to STABILIZE will trigger mode change notification to pilot
         set_mode(Mode::Number::STABILIZE, ModeReason::UNAVAILABLE);
     }
-
+    //修改
+    pps_serial.init(serial_manager);
     pos_variance_filt.set_cutoff_frequency(g2.fs_ekf_filt_hz);
     vel_variance_filt.set_cutoff_frequency(g2.fs_ekf_filt_hz);
     hgt_variance_filt.set_cutoff_frequency(g2.fs_ekf_filt_hz);

@@ -396,7 +396,8 @@ public:
     void send_high_latency2() const;
 #endif // HAL_HIGH_LATENCY2_ENABLED
     void send_uavionix_adsb_out_status() const;
-
+    //修改
+    void handle_control_pps_serial(const mavlink_message_t &msg);
     //修改
     void handle_control_pps_tcp(const mavlink_message_t &msg);
 

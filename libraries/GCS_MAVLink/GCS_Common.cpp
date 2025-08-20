@@ -68,6 +68,8 @@
 #include <AP_Landing/AP_Landing_config.h>
 //修改
 #include <AP_Networking/AP_Networking.h>
+//修改
+#include <AP_PPS_Serial/AP_PPS_Serial.h>
 #include "MissionItemProtocol_Waypoints.h"
 #include "MissionItemProtocol_Rally.h"
 #include "MissionItemProtocol_Fence.h"
@@ -3944,7 +3946,9 @@ void GCS_MAVLINK::handle_message(const mavlink_message_t &msg)
     case MAVLINK_MSG_ID_PPS_TCP:
     {
         gcs().send_text(MAV_SEVERITY_INFO, "接收到mavlink");
-        return handle_control_pps_tcp(msg);
+        handle_control_pps_serial(msg);
+        handle_control_pps_tcp(msg);
+        break;
     }
     case MAVLINK_MSG_ID_HEARTBEAT: {
         handle_heartbeat(msg);
@@ -4261,6 +4265,29 @@ void GCS_MAVLINK::handle_message(const mavlink_message_t &msg)
 
 }
 //修改
+void GCS_MAVLINK::handle_control_pps_serial(const mavlink_message_t &msg){
+    mavlink_pps_tcp_t pps_serial;
+    mavlink_msg_pps_tcp_decode(&msg, &pps_serial);
+
+    gcs().send_text(MAV_SEVERITY_INFO, "解析 PPS 命令: enable=%d, freq=%" PRId32,
+                    pps_serial.enable, pps_serial.frequency);
+
+    // 正确的方式：获取单例实例
+    AP_PPS_Serial* pps_instance = AP_PPS_Serial::get_singleton();
+    if (pps_instance != nullptr) {
+        // 调用实例的方法
+        bool success = pps_instance->send_controller(pps_serial.enable, pps_serial.frequency);
+       
+        if (success) {
+            gcs().send_text(MAV_SEVERITY_INFO, "串口PPS 命令执行成功");
+        } else {
+            gcs().send_text(MAV_SEVERITY_ERROR, "串口PPS 命令执行失败");
+        }
+    } else {
+        gcs().send_text(MAV_SEVERITY_ERROR, "PPS Serial 实例未初始化");
+    }
+}
+//修改
 void GCS_MAVLINK::handle_control_pps_tcp(const mavlink_message_t &msg)
 {
     mavlink_pps_tcp_t pps_tcp;
@@ -4279,9 +4306,9 @@ void GCS_MAVLINK::handle_control_pps_tcp(const mavlink_message_t &msg)
     bool success = net->send_receive_pps_to_port(0, pps_tcp.enable, pps_tcp.frequency);
 
     if (success) {
-        gcs().send_text(MAV_SEVERITY_INFO, "PPS 命令执行成功");
+        gcs().send_text(MAV_SEVERITY_INFO, "网口PPS 命令执行成功");
     } else {
-        gcs().send_text(MAV_SEVERITY_ERROR, "PPS 命令执行失败");
+        gcs().send_text(MAV_SEVERITY_ERROR, "网口PPS 命令执行失败");
     }
 }
 void GCS_MAVLINK::handle_common_mission_message(const mavlink_message_t &msg)
