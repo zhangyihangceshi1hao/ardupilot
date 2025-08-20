@@ -434,7 +434,7 @@ bool AP_Networking::Port::send_receive_pps(int enable,int32_t frequency)
         auto ret = sock->send(buf, len);
 
         // 检查发送结果
-        if (ret == len) {
+        if (ret == (ssize_t)len) {
             // 发送成功
             return true;
         } else {

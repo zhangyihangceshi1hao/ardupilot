@@ -4295,7 +4295,7 @@ void GCS_MAVLINK::handle_control_pps_tcp(const mavlink_message_t &msg)
 
     gcs().send_text(MAV_SEVERITY_INFO, "解析 PPS 命令: enable=%d, freq=%" PRId32,
                     pps_tcp.enable, pps_tcp.frequency);
-
+    #if AP_NETWORKING_ENABLED
     AP_Networking *net = AP_Networking::get_singleton();
     if (!net) {
         gcs().send_text(MAV_SEVERITY_ERROR, "AP_Networking 未初始化");
@@ -4310,6 +4310,7 @@ void GCS_MAVLINK::handle_control_pps_tcp(const mavlink_message_t &msg)
     } else {
         gcs().send_text(MAV_SEVERITY_ERROR, "网口PPS 命令执行失败");
     }
+    #endif
 }
 void GCS_MAVLINK::handle_common_mission_message(const mavlink_message_t &msg)
 {
