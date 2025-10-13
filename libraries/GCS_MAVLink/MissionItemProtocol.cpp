@@ -151,7 +151,13 @@ void MissionItemProtocol::handle_mission_request_int(GCS_MAVLINK &_link,
         send_mission_ack(_link, msg, result_code);
         return;
     }
-
+gcs().send_text(MAV_SEVERITY_INFO, "handle_mission_request_int****: "
+                
+                "param1=%.2f "
+                "param2=%.2f "
+                "param3=%.2f "
+                "param4=%.2f ",
+                ret_packet.param1,ret_packet.param2,ret_packet.param3,ret_packet.param4);
     _link.send_message(MAVLINK_MSG_ID_MISSION_ITEM_INT, (const char*)&ret_packet);
 }
 
@@ -237,7 +243,25 @@ void MissionItemProtocol::handle_mission_item(const mavlink_message_t &msg, cons
         INTERNAL_ERROR(AP_InternalError::error_t::gcs_bad_missionprotocol_link);
         return;
     }
-
+    // gcs().send_text(MAV_SEVERITY_INFO, "Received Mission Item: "
+    //             "seq=%u "
+    //             "command=%u "
+    //             "target_system=%u "
+    //             "target_component=%u "
+    //             "frame=%u "
+    //             "current=%u "
+    //             "autocontinue=%u "
+    //             "mission_type=%u "
+    //             "param1=%.2f "
+    //             "param2=%.2f "
+    //             "param3=%.2f "
+    //             "param4=%.2f "
+    //             "x=%.6f "
+    //             "y=%.6f "
+    //             "z=%.6f",
+    //             cmd.seq, cmd.command, cmd.target_system, cmd.target_component, cmd.frame, cmd.current,
+    //             cmd.autocontinue, cmd.mission_type, cmd.param1, cmd.param2, cmd.param3, cmd.param4,
+    //             cmd.x / 1e4, cmd.y / 1e4, cmd.z);
     // check if this is the requested waypoint
     if (cmd.seq != request_i) {
         send_mission_ack(msg, MAV_MISSION_INVALID_SEQUENCE);
@@ -313,6 +337,7 @@ void MissionItemProtocol::send_mission_ack(const GCS_MAVLINK &_link,
                                            MAV_MISSION_RESULT result) const
 {
     CHECK_PAYLOAD_SIZE2_VOID(_link.get_chan(), MISSION_ACK);
+    
     mavlink_msg_mission_ack_send(_link.get_chan(),
                                  msg.sysid,
                                  msg.compid,

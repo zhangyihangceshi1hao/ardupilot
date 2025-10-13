@@ -1528,13 +1528,17 @@ void ModeAuto::do_nav_new_wp(const AP_Mission::Mission_Command& cmd)
     // this is the delay, stored in seconds
     loiter_time_max = 0;
 
-    if (cmd.p1 == 1) {
+      uint8_t cmd_type = HIGHBYTE(cmd.p1); // distance in meters to pass beyond the wp
+    uint8_t cmd_delay = LOWBYTE(cmd.p1); // radius in meters to accept reaching the wp
+
+    if (cmd_type == 1) {
         loiter_time_max = 0;
     }
 
-    if (cmd.p1 == 2) {
-        loiter_time_max = 1;
+    if (cmd_type == 2) {
+        loiter_time_max = cmd_delay;
     }
+
 
     // set next destination if necessary
     if (!set_next_wp(cmd, target_loc)) {

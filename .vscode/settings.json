@@ -1,4 +1,14 @@
 {
     "cSpell.language": "en-GB",
-    "astyle.astylerc": "${workspaceFolder}/Tools/CodeStyle/astylerc"
+    "astyle.astylerc": "${workspaceFolder}/Tools/CodeStyle/astylerc",
+    "files.associations": {
+        "istream": "cpp",
+        "streambuf": "cpp",
+        "*.inc": "cpp",
+        "typeinfo": "cpp",
+        "future": "cpp",
+        "mutex": "cpp",
+        "ostream": "cpp",
+        "stop_token": "cpp"
+    }
 }

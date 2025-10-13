@@ -775,7 +775,15 @@ bool AP_Mission::read_cmd_from_storage(uint16_t index, Mission_Command& cmd) con
     cmd.p3 = _storage.read_uint16(pos_in_storage+6);
     cmd.p4 = _storage.read_uint16(pos_in_storage+8);
     _storage.read_block(packed_content.bytes, pos_in_storage+10, 12);
-
+ gcs().send_text(MAV_SEVERITY_INFO, "read_cmd_from_storage---------------: "
+                "index=%u "
+                "id=%u "
+                "param1=%u "
+                "param2=%u "
+                "param3=%u "
+                "param4=%u "
+                "type_specific_bits=0x%02X",
+                cmd.index, cmd.id, cmd.p1, cmd.p2, cmd.p3, cmd.p4, cmd.type_specific_bits);
 
     if (stored_in_location(cmd.id)) {
         // Location is not PACKED; field-wise copy it:
@@ -874,6 +882,19 @@ bool AP_Mission::write_cmd_to_storage(uint16_t index, const Mission_Command& cmd
     _storage.write_uint16(pos_in_storage+6, cmd.p3);
     _storage.write_uint16(pos_in_storage+8, cmd.p4);
     _storage.write_block(pos_in_storage+10, packed.bytes, 12);
+
+
+    // // Use gcs().send_text to print the mission command details
+    // gcs().send_text(MAV_SEVERITY_INFO, "=======================: ");
+    // gcs().send_text(MAV_SEVERITY_INFO, "write_cmd_to_storage: "
+    //             "index=%u "
+    //             "id=%u "
+    //             "param1=%u "
+    //             "param2=%u "
+    //             "param3=%u "
+    //             "param4=%u "
+    //             "type_specific_bits=0x%02X",
+    //             cmd.index, cmd.id, cmd.p1, cmd.p2, cmd.p3, cmd.p4, cmd.type_specific_bits);
 
 
     // remember when the mission last changed
