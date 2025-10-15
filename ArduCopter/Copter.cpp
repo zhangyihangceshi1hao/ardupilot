@@ -594,6 +594,38 @@ void Copter::three_hz_loop()
     // check if we've lost contact with the ground station
     failsafe_gcs_check();
 
+    bool tmp_compass_unhealthy_flag = false;
+    if (copter.g.fs_ekf_thresh > 0.0f) {
+        float vel_variance, pos_variance, hgt_variance, tas_variance;
+        Vector3f mag_variance;
+        ahrs.get_variances(vel_variance, pos_variance, hgt_variance,
+                           mag_variance, tas_variance);
+        if (mag_variance.length() >= copter.g.fs_ekf_thresh) {
+            tmp_compass_unhealthy_flag = true;
+        }
+    }
+
+    const Compass &_compass = AP::compass();
+    if (!_compass.healthy()) {
+        tmp_compass_unhealthy_flag = true;
+    }
+
+    AP_Notify::flags.compass_unhealthy = tmp_compass_unhealthy_flag;
+
+    if (!copter.position_ok()) {
+        AP_Notify::flags.pos_estimate_not_ready = true;
+    } else {
+        AP_Notify::flags.pos_estimate_not_ready = false;
+    }
+
+    char battery_buffer[MAVLINK_MSG_STATUSTEXT_FIELD_TEXT_LEN+1] {};
+    if (!battery.arming_checks(sizeof(battery_buffer), battery_buffer))
+    {
+        AP_Notify::flags.failsafe_battery = true;
+    } else {
+        AP_Notify::flags.failsafe_battery = false;
+    }
+    
     // check if we've lost terrain data
     failsafe_terrain_check();
 

@@ -102,11 +102,19 @@ uint32_t RGBLed::get_colour_sequence(void) const {
         return sequence_trim_or_esc;
     }
 
-    // radio and battery failsafe patter: flash yellow
+    if (AP_Notify::flags.failsafe_battery) {
+        return sequence_failsafe_battery;
+    }
+
+    if (AP_Notify::flags.compass_unhealthy) {
+        return sequence_failsafe_compass;
+    }
+
+    // radio failsafe patter: flash yellow
     // gps failsafe pattern : flashing yellow and blue
     // ekf_bad pattern : flashing yellow and red
     if (AP_Notify::flags.failsafe_radio || AP_Notify::flags.failsafe_gcs ||
-        AP_Notify::flags.failsafe_battery || AP_Notify::flags.ekf_bad ||
+        AP_Notify::flags.ekf_bad ||
         AP_Notify::flags.gps_glitching || AP_Notify::flags.leak_detected) {
         if (AP_Notify::flags.leak_detected) {
             // purple if leak detected
@@ -137,7 +145,12 @@ uint32_t RGBLed::get_colour_sequence(void) const {
             return sequence_GPS_mode_armed;
         }
 
-        return sequence_althold_mode_armed;
+        if (AP_Notify::flags.flight_mode == 2)  // AltHold mode
+        {
+            return sequence_althold_mode_armed;   
+        }
+
+        return sequence_armed_nogps;
     }
 
     // double flash yellow if failing pre-arm checks
@@ -167,6 +180,11 @@ uint32_t RGBLed::get_colour_sequence(void) const {
     // }
 
     if (AP_Notify::flags.flight_mode == 2) {  // althold mode
+        if (AP_Notify::flags.pos_estimate_not_ready)  // 添加此判断，解决定高模式显示GPS定位良好，但是GPS模式下显示定位不足的问题
+        {
+            return sequence_althold_mode_disarmd_bad_gps;
+        }
+        
         if (AP_Notify::flags.gps_status >= AP_GPS::GPS_OK_FIX_3D_DGPS &&
             AP_Notify::flags.pre_arm_gps_check) {
             return sequence_althold_mode_disarmd_good_dgps;

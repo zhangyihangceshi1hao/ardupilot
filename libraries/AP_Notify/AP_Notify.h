@@ -131,6 +131,8 @@ public:
         bool powering_off;        // true when the vehicle is powering off
         bool video_recording;     // true when the vehicle is recording video
         bool temp_cal_running;    // true if a temperature calibration is running
+        bool compass_unhealthy;   // true if compass not healthy 
+        bool pos_estimate_not_ready;  // true if position estimate not ready
     };
 
     /// notify_events_type - bitmask of active events.
