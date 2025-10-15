@@ -170,6 +170,7 @@ public:
         SerialProtocol_MAVLinkHL = 43,
         SerialProtocol_Tramp = 44,
         SerialProtocol_POS = 45,
+        SerialProtocol_BDS_upstream = 46,  // 北斗上行数据
         SerialProtocol_NumProtocols                    // must be the last value
     };
 

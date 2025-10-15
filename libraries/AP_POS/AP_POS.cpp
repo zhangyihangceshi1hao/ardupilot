@@ -16,10 +16,16 @@ void AP_POS::init(const AP_SerialManager& serial_manager) {
         _port->set_flow_control(AP_HAL::UARTDriver::FLOW_CONTROL_DISABLE);
         uint32_t baudrate = serial_manager.find_baudrate(AP_SerialManager::SerialProtocol_POS, 0);
         _port->begin(baudrate, 256, 512);
+        _is_ap_pos = true;
+    } else if ((_port = serial_manager.find_serial(AP_SerialManager::SerialProtocol_BDS_upstream, 0))) {
+        _port->set_flow_control(AP_HAL::UARTDriver::FLOW_CONTROL_DISABLE);
+        uint32_t baudrate = serial_manager.find_baudrate(AP_SerialManager::SerialProtocol_BDS_upstream, 0);
+        _port->begin(baudrate, 256, 512);
+        _is_BDS_upstream = true;
     }
 }
 
-bool AP_POS::update(uint8_t UTC_year, uint8_t UTC_month, uint8_t UTC_day,
+bool AP_POS::pos_update(uint8_t UTC_year, uint8_t UTC_month, uint8_t UTC_day,
                     uint8_t UTC_hour, uint8_t UTC_minute, uint16_t UTC_second,
                     int32_t longitude, int32_t latitude, int16_t alt_sealevel,
                     int16_t pitch_cd, int16_t roll_cd, uint16_t yaw_cd,
@@ -28,6 +34,11 @@ bool AP_POS::update(uint8_t UTC_year, uint8_t UTC_month, uint8_t UTC_day,
 {
     if(_port == NULL)
         return false;
+
+    if (_is_ap_pos == false)
+    {
+        return false;
+    }
 
     _tx_data.pva_u.UTC_year = UTC_year;
     _tx_data.pva_u.UTC_month = UTC_month;
@@ -61,6 +72,21 @@ bool AP_POS::update(uint8_t UTC_year, uint8_t UTC_month, uint8_t UTC_day,
     }
     
     _port->write(_tx_data.bytes, POS_FIXED_FRAME_LENGTH);
+
+    return true;
+}
+
+bool AP_POS::BDS_upstream_update(uint8_t *tx_buf, int data_size) 
+{
+    if(_port == NULL)
+        return false;
+
+    if (_is_BDS_upstream == false)
+    {
+        return false;
+    }
+
+    _port->write(tx_buf, data_size);
 
     return true;
 }

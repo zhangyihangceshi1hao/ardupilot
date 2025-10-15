@@ -15,12 +15,17 @@ public:
 
     void init(const AP_SerialManager& serial_manager);
 
-    bool update(uint8_t UTC_year, uint8_t UTC_month, uint8_t UTC_day,
+    bool pos_update(uint8_t UTC_year, uint8_t UTC_month, uint8_t UTC_day,
                     uint8_t UTC_hour, uint8_t UTC_minute, uint16_t UTC_second,
                     int32_t longitude, int32_t latitude, int16_t alt_sealevel,
                     int16_t pitch_cd, int16_t roll_cd, uint16_t yaw_cd,
                     uint16_t speed, int16_t v_speed, uint16_t course_cd,
                     uint8_t gps_fixed, uint32_t gps_tow, int16_t alt_home);
+
+    bool BDS_upstream_update(uint8_t *tx_buf, int data_size);
+
+    bool is_ap_pos() { return _is_ap_pos; }
+    bool is_BDS_upsteam() { return _is_BDS_upstream; }
 
 private:
     AP_HAL::UARTDriver *_port;              // UART used to send data to receiver
@@ -57,4 +62,7 @@ private:
     };
 
     msgbuffer _tx_data;
+
+    bool _is_ap_pos = false;
+    bool _is_BDS_upstream = false;
 };

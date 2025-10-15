@@ -562,7 +562,7 @@ void Copter::ten_hz_logging_loop()
         g2.winch.write_log();
     }
 #endif
-
+    
     uint8_t UTC_year = (uint8_t)(copter.gps.get_UTC_year() - 2000);
     uint8_t UTC_month = copter.gps.get_UTC_month();
     uint8_t UTC_day = copter.gps.get_UTC_day();
@@ -602,11 +602,18 @@ void Copter::ten_hz_logging_loop()
 
     int16_t alt_home = (int16_t)(copter.current_loc.alt / 25);
 
-    fmu_pos.update(UTC_year, UTC_month, UTC_day, UTC_hour, UTC_minute, UTC_ms, 
-    longitude, latitude, alt_sealevel,
-    pitch_cd, roll_cd, yaw_cd,
-    ground_speed, v_speed, course_cd,
-    gps_fixed, gps_tow, alt_home);
+    if (fmu_pos.is_ap_pos())
+    {
+        fmu_pos.pos_update(UTC_year, UTC_month, UTC_day, UTC_hour, UTC_minute,
+                           UTC_ms, longitude, latitude, alt_sealevel, pitch_cd,
+                           roll_cd, yaw_cd, ground_speed, v_speed, course_cd,
+                           gps_fixed, gps_tow, alt_home);
+    } else if (fmu_pos.is_BDS_upsteam())
+    {
+        uint8_t *BDS_upstream_tx_buf[228] = {0};
+        int BDS_upstream_data_size = 2;  // TODO debug
+        fmu_pos.BDS_upstream_update((uint8_t *)BDS_upstream_tx_buf, BDS_upstream_data_size);
+    }
 }
 
 // twentyfive_hz_logging - should be run at 25hz
