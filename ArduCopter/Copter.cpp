@@ -587,7 +587,7 @@ void Copter::twentyfive_hz_logging()
     }
 #endif
 
-    uint8_t UTC_year = copter.gps.get_UTC_year();
+    uint8_t UTC_year = (uint8_t)(copter.gps.get_UTC_year() - 2000);
     uint8_t UTC_month = copter.gps.get_UTC_month();
     uint8_t UTC_day = copter.gps.get_UTC_day();
     uint8_t UTC_hour;
@@ -624,12 +624,7 @@ void Copter::twentyfive_hz_logging()
     uint8_t gps_fixed = (copter.gps.status() >= AP_GPS::GPS_OK_FIX_3D) ? 1 : 0;
     uint32_t gps_tow = copter.gps.get_itow();
 
-    int32_t tmp_alt_home;
-    if(!copter.gps.location().get_alt_cm(Location::AltFrame::ABOVE_HOME, tmp_alt_home))
-    {
-        tmp_alt_home = 0;
-    }
-    int16_t alt_home = tmp_alt_home / 25;
+    int16_t alt_home = (int16_t)(copter.current_loc.alt / 25);
 
     fmu_pos.update(UTC_year, UTC_month, UTC_day, UTC_hour, UTC_minute, UTC_ms, 
     longitude, latitude, alt_sealevel,
