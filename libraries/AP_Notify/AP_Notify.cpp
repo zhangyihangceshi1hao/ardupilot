@@ -452,6 +452,8 @@ void AP_Notify::init(void)
 {
     // add all the backends
     add_backends();
+
+    AP_Notify::flags.initialising = true;
 }
 
 // main update function, called at 50Hz
