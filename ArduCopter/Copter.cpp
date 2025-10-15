@@ -562,30 +562,6 @@ void Copter::ten_hz_logging_loop()
         g2.winch.write_log();
     }
 #endif
-}
-
-// twentyfive_hz_logging - should be run at 25hz
-void Copter::twentyfive_hz_logging()
-{
-    if (should_log(MASK_LOG_ATTITUDE_FAST)) {
-        Log_Write_EKF_POS();
-    }
-
-    if (should_log(MASK_LOG_IMU) && !(should_log(MASK_LOG_IMU_FAST))) {
-        AP::ins().Write_IMU();
-    }
-
-#if MODE_AUTOROTATE_ENABLED == ENABLED
-    if (should_log(MASK_LOG_ATTITUDE_MED) || should_log(MASK_LOG_ATTITUDE_FAST)) {
-        //update autorotation log
-        g2.arot.Log_Write_Autorotation();
-    }
-#endif
-#if HAL_GYROFFT_ENABLED
-    if (should_log(MASK_LOG_FTN_FAST)) {
-        gyro_fft.write_log_messages();
-    }
-#endif
 
     uint8_t UTC_year = (uint8_t)(copter.gps.get_UTC_year() - 2000);
     uint8_t UTC_month = copter.gps.get_UTC_month();
@@ -631,13 +607,30 @@ void Copter::twentyfive_hz_logging()
     pitch_cd, roll_cd, yaw_cd,
     ground_speed, v_speed, course_cd,
     gps_fixed, gps_tow, alt_home);
-    
+}
 
-    // fmu_pos.update(pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, ahrs.get_roll(),
-    //                ahrs.get_pitch(), wrap_2PI(ahrs.get_yaw()));
+// twentyfive_hz_logging - should be run at 25hz
+void Copter::twentyfive_hz_logging()
+{
+    if (should_log(MASK_LOG_ATTITUDE_FAST)) {
+        Log_Write_EKF_POS();
+    }
 
-    // GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "PX: %.1f  PY: %.1f  PZ: %.1f",
-    //               pos.x, pos.y, pos.z);
+    if (should_log(MASK_LOG_IMU) && !(should_log(MASK_LOG_IMU_FAST))) {
+        AP::ins().Write_IMU();
+    }
+
+#if MODE_AUTOROTATE_ENABLED == ENABLED
+    if (should_log(MASK_LOG_ATTITUDE_MED) || should_log(MASK_LOG_ATTITUDE_FAST)) {
+        //update autorotation log
+        g2.arot.Log_Write_Autorotation();
+    }
+#endif
+#if HAL_GYROFFT_ENABLED
+    if (should_log(MASK_LOG_FTN_FAST)) {
+        gyro_fft.write_log_messages();
+    }
+#endif
 }
 
 // three_hz_loop - 3.3hz loop
