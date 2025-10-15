@@ -868,16 +868,16 @@ void AP_GPS_NMEA::send_config(void)
         FALLTHROUGH;
 
     case AP_GPS::GPS_TYPE_UNICORE_NMEA: {
-        port->printf("\r\nAGRICA %.3f\r\n" \
-                     "MODE MOVINGBASE\r\n" \
-                     "GNGGA %.3f\r\n" \
-                     "GNRMC %.3f\r\n",
-                     rate_s, rate_s, rate_s);
+        port->printf("\r\n"
+                    "GPGGA %.3f\r\n"    // 配置GPGGA消息 5Hz
+                    "GPRMC %.3f\r\n"    // 配置GPRMC消息 5Hz
+                    "GPVTG %.3f\r\n"    // 配置GPVTG消息 5Hz
+                    "GPHDT %.3f\r\n",   // 配置GPHDT消息 5Hz
+                    rate_s, rate_s, rate_s, rate_s);
+        
         if (!_have_unicore_versiona) {
-            // get version information for logging if we don't have it yet
             port->printf("VERSIONA\r\n");
             if (gps._save_config) {
-                // save config changes for fast startup
                 port->printf("SAVECONFIG\r\n");
             }
         }
