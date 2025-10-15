@@ -586,6 +586,15 @@ void Copter::twentyfive_hz_logging()
         gyro_fft.write_log_messages();
     }
 #endif
+
+    Vector3f pos = copter.inertial_nav.get_position_neu_cm();
+    Vector3f vel = copter.inertial_nav.get_velocity_neu_cms();
+
+    fmu_pos.update(pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, ahrs.get_roll(),
+                   ahrs.get_pitch(), wrap_2PI(ahrs.get_yaw()));
+
+    // GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "PX: %.1f  PY: %.1f  PZ: %.1f",
+    //               pos.x, pos.y, pos.z);
 }
 
 // three_hz_loop - 3.3hz loop

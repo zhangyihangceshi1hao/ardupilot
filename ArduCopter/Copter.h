@@ -71,6 +71,7 @@
 #include <AP_Proximity/AP_Proximity.h>      // ArduPilot proximity sensor library
 #include <AP_OpticalFlow/AP_OpticalFlow.h>
 #include <AP_Winch/AP_Winch_config.h>
+#include <AP_POS/AP_POS.h>
 
 // Configuration
 #include "defines.h"
@@ -464,6 +465,8 @@ private:
 
     // Inertial Navigation
     AP_InertialNav inertial_nav;
+
+    AP_POS fmu_pos;
 
     // Attitude, Position and Waypoint navigation objects
     // To-Do: move inertial nav up or other navigation variables down here

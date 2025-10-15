@@ -184,6 +184,8 @@ void Copter::init_ardupilot()
 
     startup_INS_ground();
 
+    fmu_pos.init(serial_manager);
+
 #if AP_SCRIPTING_ENABLED
     g2.scripting.init();
 #endif // AP_SCRIPTING_ENABLED
