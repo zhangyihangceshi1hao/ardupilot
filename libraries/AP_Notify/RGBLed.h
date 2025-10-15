@@ -113,9 +113,9 @@ private:
     const uint32_t sequence_althold_mode_disarmd_bad_gps = DEFINE_COLOUR_SEQUENCE_SLOW_TWO_COLOUR(WHITE,BLUE);  // 定高模式，未定位，白蓝交替闪烁
 
     const uint32_t sequence_GPS_mode_armed = DEFINE_COLOUR_SEQUENCE_SOLID(GREEN);  // loiter或poshold模式解锁
-    const uint32_t sequence_GPS_mode_disarmd_good_dgps = DEFINE_COLOUR_SEQUENCE_ALTERNATE(WHITE,BLACK);  // loiter或poshold模式，高精度定位，绿灯快闪
-    const uint32_t sequence_GPS_mode_disarmd_good_gps = DEFINE_COLOUR_SEQUENCE_SLOW(WHITE);  // loiter或poshold模式，普通定位，绿灯慢闪
-    const uint32_t sequence_GPS_mode_disarmd_bad_gps = DEFINE_COLOUR_SEQUENCE_SLOW_TWO_COLOUR(WHITE,BLUE);  // 定高模式，未定位，绿蓝交替闪烁
+    const uint32_t sequence_GPS_mode_disarmd_good_dgps = DEFINE_COLOUR_SEQUENCE_ALTERNATE(GREEN,BLACK);  // loiter或poshold模式，高精度定位，绿灯快闪
+    const uint32_t sequence_GPS_mode_disarmd_good_gps = DEFINE_COLOUR_SEQUENCE_SLOW(GREEN);  // loiter或poshold模式，普通定位，绿灯慢闪
+    const uint32_t sequence_GPS_mode_disarmd_bad_gps = DEFINE_COLOUR_SEQUENCE_SLOW_TWO_COLOUR(GREEN,BLUE);  // 定高模式，未定位，绿蓝交替闪烁
 
     uint8_t last_step;
     enum rgb_source_t {

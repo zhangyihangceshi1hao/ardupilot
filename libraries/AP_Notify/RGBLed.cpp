@@ -142,6 +142,12 @@ uint32_t RGBLed::get_colour_sequence(void) const {
 
     // double flash yellow if failing pre-arm checks
     if (!AP_Notify::flags.pre_arm_check) {
+        if ((!AP_Notify::flags.pre_arm_gps_check) &&  // GPS未定位
+            ((AP_Notify::flags.flight_mode == 5) ||  // loiter mode
+             (AP_Notify::flags.flight_mode == 16))) {  // PosHold mode
+            return sequence_GPS_mode_disarmd_bad_gps;
+        }
+
         return sequence_prearm_failing;
     }
 
