@@ -5,7 +5,7 @@
 
 #define POS_FIXED_FRAME_LENGTH 100 // 帧长
 
-#define BDS_REPORT_PERIOD_S 10  // 北斗短报文上传周期，单位秒
+#define BDS_REPORT_PERIOD_S 120  // 北斗短报文上传周期，单位秒
 
 class AP_POS {
 public:
