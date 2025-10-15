@@ -587,11 +587,59 @@ void Copter::twentyfive_hz_logging()
     }
 #endif
 
-    Vector3f pos = copter.inertial_nav.get_position_neu_cm();
-    Vector3f vel = copter.inertial_nav.get_velocity_neu_cms();
+    uint8_t UTC_year = copter.gps.get_UTC_year();
+    uint8_t UTC_month = copter.gps.get_UTC_month();
+    uint8_t UTC_day = copter.gps.get_UTC_day();
+    uint8_t UTC_hour;
+    uint8_t UTC_minute;
+    uint8_t UTC_second;
+    uint16_t UTC_milisecond;
+    uint16_t UTC_ms;
+    AP::rtc().get_system_clock_utc(UTC_hour, UTC_minute, UTC_second, UTC_milisecond);
+    UTC_ms = ((uint16_t)UTC_second * 1000 + UTC_milisecond) / 2;
 
-    fmu_pos.update(pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, ahrs.get_roll(),
-                   ahrs.get_pitch(), wrap_2PI(ahrs.get_yaw()));
+    double lng = (double)copter.gps.location().lng / 1e7 * 11930464.7056;
+    int32_t longitude = (int32_t)lng;
+    double lat = (double)copter.gps.location().lat / 1e7 * 23860929.4111;
+    int32_t latitude = (int32_t)lat;
+    int16_t alt_sealevel;
+    int32_t tmp_alt_sealevel;
+    if(!copter.gps.location().get_alt_cm(Location::AltFrame::ABSOLUTE, tmp_alt_sealevel))
+    {
+        tmp_alt_sealevel = 0;
+    }
+    alt_sealevel = tmp_alt_sealevel / 25;
+
+    int16_t pitch_cd;
+    int16_t roll_cd;
+    uint16_t yaw_cd;
+    pitch_cd = int16_t(degrees(ahrs.get_pitch()) * 100.0f);
+    roll_cd = int16_t(degrees(ahrs.get_roll()) * 100.0f);
+    yaw_cd = int16_t(degrees(wrap_2PI(ahrs.get_yaw())) * 100.0f);
+
+    uint16_t ground_speed = uint16_t(copter.gps.ground_speed() * 10.0f);
+    Vector3f vel = copter.inertial_nav.get_velocity_neu_cms();
+    int16_t v_speed = (int16_t)(vel.z / 10.0f);
+    uint16_t course_cd = uint16_t(copter.gps.ground_course() * 100.0f);
+    uint8_t gps_fixed = (copter.gps.status() >= AP_GPS::GPS_OK_FIX_3D) ? 1 : 0;
+    uint32_t gps_tow = copter.gps.get_itow();
+
+    int32_t tmp_alt_home;
+    if(!copter.gps.location().get_alt_cm(Location::AltFrame::ABOVE_HOME, tmp_alt_home))
+    {
+        tmp_alt_home = 0;
+    }
+    int16_t alt_home = tmp_alt_home / 25;
+
+    fmu_pos.update(UTC_year, UTC_month, UTC_day, UTC_hour, UTC_minute, UTC_ms, 
+    longitude, latitude, alt_sealevel,
+    pitch_cd, roll_cd, yaw_cd,
+    ground_speed, v_speed, course_cd,
+    gps_fixed, gps_tow, alt_home);
+    
+
+    // fmu_pos.update(pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, ahrs.get_roll(),
+    //                ahrs.get_pitch(), wrap_2PI(ahrs.get_yaw()));
 
     // GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "PX: %.1f  PY: %.1f  PZ: %.1f",
     //               pos.x, pos.y, pos.z);

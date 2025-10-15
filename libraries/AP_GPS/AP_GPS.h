@@ -223,6 +223,10 @@ public:
         float relPosD;                     ///< Reported Vertical distance in meters
         float accHeading;                  ///< Reported Heading Accuracy in degrees
         uint32_t relposheading_ts;        ///< True if new data has been received since last time it was false
+
+        uint16_t UTC_year;
+        uint8_t UTC_month;
+        uint8_t UTC_day;
     };
 
     /// Startup initialisation.
@@ -392,6 +396,12 @@ public:
         return time_week(primary_instance);
     }
 
+    uint16_t get_UTC_year() const { return state[primary_instance].UTC_year; }
+
+    uint8_t get_UTC_month() const { return state[primary_instance].UTC_month; }
+
+    uint8_t get_UTC_day() const { return state[primary_instance].UTC_day; }
+
     // horizontal dilution of precision
     uint16_t get_hdop(uint8_t instance) const {
         return state[instance].hdop;
@@ -550,6 +560,7 @@ public:
 
     // get iTOW, if supported, zero otherwie
     uint32_t get_itow(uint8_t instance) const;
+    uint32_t get_itow() const { return get_itow(primary_instance); }
 
     bool get_error_codes(uint8_t instance, uint32_t &error_codes) const;
     bool get_error_codes(uint32_t &error_codes) const { return get_error_codes(primary_instance, error_codes); }

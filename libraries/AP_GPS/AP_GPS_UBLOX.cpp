@@ -1591,6 +1591,9 @@ AP_GPS_UBLOX::_parse_gps(void)
         
         // time
         state.time_week_ms    = _buffer.pvt.itow;
+        state.UTC_year = _buffer.pvt.year;
+        state.UTC_month = _buffer.pvt.month;
+        state.UTC_day = _buffer.pvt.day;
 #if UBLOX_FAKE_3DLOCK
         state.location.lng = 1491652300L;
         state.location.lat = -353632610L;
