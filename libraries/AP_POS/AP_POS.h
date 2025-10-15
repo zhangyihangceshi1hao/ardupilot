@@ -5,6 +5,8 @@
 
 #define POS_FIXED_FRAME_LENGTH 100 // 帧长
 
+#define BDS_REPORT_PERIOD_S 10  // 北斗短报文上传周期，单位秒
+
 class AP_POS {
 public:
     AP_POS();
@@ -22,7 +24,13 @@ public:
                     uint16_t speed, int16_t v_speed, uint16_t course_cd,
                     uint8_t gps_fixed, uint32_t gps_tow, int16_t alt_home);
 
-    bool BDS_upstream_update(uint8_t *tx_buf, int data_size);
+    bool BDS_upstream_update(uint16_t year, uint8_t month, uint8_t day,
+                                 uint8_t hour, uint8_t minute, uint8_t sec,
+                                 const char *mode_name, uint8_t sat_count,
+                                 double longitude, double latitude,
+                                 double alt_sealevel, double alt_above_home,
+                                 float h_speed, float course, float v_speed,
+                                 float bat_v);
 
     bool is_ap_pos() { return _is_ap_pos; }
     bool is_BDS_upsteam() { return _is_BDS_upstream; }
@@ -65,4 +73,6 @@ private:
 
     bool _is_ap_pos = false;
     bool _is_BDS_upstream = false;
+
+    uint32_t _BDS_upstream_next_report_time_ms = 0;
 };

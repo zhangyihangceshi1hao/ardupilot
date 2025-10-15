@@ -699,6 +699,7 @@ private:
     bool get_wp_bearing_deg(float &bearing) const override;
     bool get_wp_crosstrack_error_m(float &xtrack_error) const override;
     bool get_rate_ef_targets(Vector3f& rate_ef_targets) const override;
+    void gps_to_beijing_time(uint16_t gps_week, uint32_t tow, uint16_t *p_year, uint8_t *p_month, uint8_t *p_day, uint8_t *p_hour, uint8_t *p_minute, uint8_t *p_sec);  // GPS时间转为北京时间
 
     // Attitude.cpp
     void update_throttle_hover();

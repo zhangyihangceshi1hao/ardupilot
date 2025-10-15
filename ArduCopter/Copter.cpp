@@ -495,6 +495,133 @@ void Copter::update_batt_compass(void)
     }
 }
 
+void Copter::gps_to_beijing_time(uint16_t gps_week, uint32_t tow, uint16_t *p_year, uint8_t *p_month, uint8_t *p_day, uint8_t *p_hour, uint8_t *p_minute, uint8_t *p_sec) 
+{
+    // GPS时间与北京时间的转换参数
+    const uint64_t SECONDS_IN_WEEK = 604800;
+    const int GPS_EPOCH_YEAR = 1980;
+    const int GPS_EPOCH_MONTH = 1;
+    const int GPS_EPOCH_DAY = 6;
+    const int GPS_UTC_OFFSET = 18;       // GPS时间比UTC快18秒
+    const int BEIJING_UTC_OFFSET = 8 * 3600; // 北京时间比UTC快8小时
+
+    // 1. 计算总秒数
+    uint64_t total_seconds = (uint64_t)gps_week * SECONDS_IN_WEEK + (uint64_t)tow;
+
+    // 2. 调整为UTC时间
+    if(total_seconds < GPS_UTC_OFFSET){
+        total_seconds = 0;
+    }
+    else{
+        total_seconds -= GPS_UTC_OFFSET;
+    }
+
+    // 3. 调整为北京时间
+    total_seconds += BEIJING_UTC_OFFSET;
+
+    // 4. 转换为日期时间
+    // 初始日期为GPS纪元
+    int year = GPS_EPOCH_YEAR;
+    int month = GPS_EPOCH_MONTH;
+    int day = GPS_EPOCH_DAY;
+
+    // 计算总天数和剩余秒数
+    uint64_t days = total_seconds / 86400;
+    uint64_t remaining_seconds = total_seconds % 86400;
+
+    // 计算具体的年
+    while (1) {
+        // 判断是否为闰年
+        int is_leap = 0;
+        if ((year % 400) == 0 || ((year % 4) == 0 && (year % 100) != 0)) {
+            is_leap = 1;
+        }
+
+        // 每年的天数
+        int days_in_year = is_leap ? 366 : 365;
+
+        // 计算当前年剩余的天数（从1月1日开始）
+        // 需要考虑GPS纪元起始在1月6日
+        int start_day_of_year = (year == GPS_EPOCH_YEAR) ? (day - 1) : 0;
+        if(year == GPS_EPOCH_YEAR){
+            days_in_year -= (start_day_of_year);
+        }
+
+        if (days >= days_in_year) {
+            days -= days_in_year;
+            year++;
+        }
+        else {
+            break;
+        }
+    }
+
+    // 计算具体的月
+    while (1) {
+        // 判断是否为闰年
+        int is_leap = 0;
+        if ((year % 400) == 0 || ((year % 4) == 0 && (year % 100) != 0)) {
+            is_leap = 1;
+        }
+
+        // 每个月的天数
+        int days_in_month;
+        switch(month){
+            case 1: case 3: case 5: case 7: case 8: case 10: case 12:
+                days_in_month = 31;
+                break;
+            case 4: case 6: case 9: case 11:
+                days_in_month = 30;
+                break;
+            case 2:
+                days_in_month = is_leap ? 29 : 28;
+                break;
+            default:
+                days_in_month = 30; // 默认值，理论上不会用到
+                break;
+        }
+
+        // 计算当前月剩余的天数
+        int start_day_of_month = (year == GPS_EPOCH_YEAR && month == GPS_EPOCH_MONTH) ? (day - 1) : 0;
+        if(year == GPS_EPOCH_YEAR && month == GPS_EPOCH_MONTH){
+            days_in_month -= start_day_of_month;
+        }
+
+        if (days >= days_in_month) {
+            days -= days_in_month;
+            month++;
+            if(month > 12){
+                month =1;
+                year++;
+            }
+        }
+        else {
+            break;
+        }
+    }
+
+    // 计算具体的日
+    if(year == GPS_EPOCH_YEAR && month == GPS_EPOCH_MONTH){
+        day += days;
+    }
+    else{
+        day = 1 + days;
+    }
+
+    // 计算具体的时、分、秒
+    int hour = remaining_seconds / 3600;
+    remaining_seconds %= 3600;
+    int minute = remaining_seconds / 60;
+    int second = remaining_seconds % 60;
+
+    *p_year = year;
+    *p_month = month;
+    *p_day = day;
+    *p_hour = hour;
+    *p_minute = minute;
+    *p_sec = second;
+}
+
 // Full rate logging of attitude, rate and pid loops
 // should be run at loop rate
 void Copter::loop_rate_logging()
@@ -610,9 +737,18 @@ void Copter::ten_hz_logging_loop()
                            gps_fixed, gps_tow, alt_home);
     } else if (fmu_pos.is_BDS_upsteam())
     {
-        uint8_t *BDS_upstream_tx_buf[228] = {0};
-        int BDS_upstream_data_size = 2;  // TODO debug
-        fmu_pos.BDS_upstream_update((uint8_t *)BDS_upstream_tx_buf, BDS_upstream_data_size);
+        uint16_t beijing_year;
+        uint8_t beijing_month;
+        uint8_t beijing_day;
+        uint8_t beijing_hour;
+        uint8_t beijing_minute;
+        uint8_t beijing_sec;
+        gps_to_beijing_time(copter.gps.time_week(), copter.gps.get_itow() / 1000, &beijing_year, &beijing_month, &beijing_day, &beijing_hour, &beijing_minute, &beijing_sec);
+        fmu_pos.BDS_upstream_update(beijing_year, beijing_month, beijing_day,
+        beijing_hour, beijing_minute, beijing_sec,
+        flightmode->name(), gps.num_sats(),
+        gps.location().lat, gps.location().lng, tmp_alt_sealevel * 0.01f, copter.current_loc.alt * 0.01f,
+        copter.gps.ground_speed(), copter.gps.ground_course(), vel.z * 0.01f, battery.voltage());
     }
 }
 

@@ -1,4 +1,5 @@
 #include "AP_POS.h"
+#include "stdio.h"
 
 extern const AP_HAL::HAL& hal;
 
@@ -22,6 +23,7 @@ void AP_POS::init(const AP_SerialManager& serial_manager) {
         uint32_t baudrate = serial_manager.find_baudrate(AP_SerialManager::SerialProtocol_BDS_upstream, 0);
         _port->begin(baudrate, 256, 512);
         _is_BDS_upstream = true;
+        _BDS_upstream_next_report_time_ms = AP_HAL::millis() + BDS_REPORT_PERIOD_S * 1000;
     }
 }
 
@@ -76,7 +78,13 @@ bool AP_POS::pos_update(uint8_t UTC_year, uint8_t UTC_month, uint8_t UTC_day,
     return true;
 }
 
-bool AP_POS::BDS_upstream_update(uint8_t *tx_buf, int data_size) 
+bool AP_POS::BDS_upstream_update(uint16_t year, uint8_t month, uint8_t day,
+                                 uint8_t hour, uint8_t minute, uint8_t sec,
+                                 const char *mode_name, uint8_t sat_count,
+                                 double longitude, double latitude,
+                                 double alt_sealevel, double alt_above_home,
+                                 float h_speed, float course, float v_speed,
+                                 float bat_v)
 {
     if(_port == NULL)
         return false;
@@ -86,7 +94,28 @@ bool AP_POS::BDS_upstream_update(uint8_t *tx_buf, int data_size)
         return false;
     }
 
-    _port->write(tx_buf, data_size);
+    if (AP_HAL::millis() < _BDS_upstream_next_report_time_ms)
+    {
+        return false;
+    }
+    else
+    {
+        _BDS_upstream_next_report_time_ms = AP_HAL::millis() + BDS_REPORT_PERIOD_S * 1000;
+    }
 
+    char *fname = NULL;
+
+    asprintf(&fname, "%04d%02d%02d-%02d%02d%02d,%s,%02d,%.7f,%.7f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\r\n",
+                year, month, day,
+                hour, minute, sec,
+                mode_name, sat_count,
+                longitude, latitude, alt_sealevel, alt_above_home,
+                h_speed, course, v_speed,
+                bat_v);
+
+    _port->write(fname);
+
+    free(fname);
+    
     return true;
 }
