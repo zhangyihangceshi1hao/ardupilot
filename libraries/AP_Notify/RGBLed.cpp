@@ -148,6 +148,11 @@ uint32_t RGBLed::get_colour_sequence(void) const {
             return sequence_GPS_mode_disarmd_bad_gps;
         }
 
+        if ((!AP_Notify::flags.pre_arm_gps_check) &&  // GPS未定位
+            (AP_Notify::flags.flight_mode == 2)) {    // AltHold mode
+            return sequence_althold_mode_disarmd_bad_gps;
+        }
+
         return sequence_prearm_failing;
     }
 
