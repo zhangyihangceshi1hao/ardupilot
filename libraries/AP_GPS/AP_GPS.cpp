@@ -395,6 +395,15 @@ const AP_Param::GroupInfo AP_GPS::var_info[] = {
 #endif // GPS_MAX_RECEIVERS > 1
 #endif // HAL_ENABLE_LIBUAVCAN_DRIVERS
 
+    // @Param: _YAW_OFS
+    // @DisplayName: GPS yaw offset in degree
+    // @Description: GPS提供的航向的偏移值
+    // @Units: deg
+    // @Range: 0 360
+    // @User: Advanced
+    // @RebootRequired: False
+    AP_GROUPINFO("_YAW_OFS", 32, AP_GPS, _GPS_yaw_offset_deg, 0),
+
     AP_GROUPEND
 };
 
@@ -2237,7 +2246,8 @@ bool AP_GPS::gps_yaw_deg(uint8_t instance, float &yaw_deg, float &accuracy_deg, 
         return false;
     }
 
-    yaw_deg = state[instance].gps_yaw;
+    // yaw_deg = state[instance].gps_yaw;
+    yaw_deg = wrap_360(state[instance].gps_yaw + _GPS_yaw_offset_deg);
 
     // get lagged timestamp
     time_ms = state[instance].gps_yaw_time_ms;
