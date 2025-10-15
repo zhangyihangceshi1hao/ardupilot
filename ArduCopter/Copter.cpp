@@ -747,7 +747,7 @@ void Copter::ten_hz_logging_loop()
         fmu_pos.BDS_upstream_update(beijing_year, beijing_month, beijing_day,
         beijing_hour, beijing_minute, beijing_sec,
         flightmode->name(), gps.num_sats(),
-        gps.location().lat, gps.location().lng, tmp_alt_sealevel * 0.01f, copter.current_loc.alt * 0.01f,
+        gps.location().lat * 1e-7, gps.location().lng * 1e-7, tmp_alt_sealevel * 0.01f, copter.current_loc.alt * 0.01f,
         copter.gps.ground_speed(), copter.gps.ground_course(), vel.z * 0.01f, battery.voltage());
     }
 }
