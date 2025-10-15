@@ -944,11 +944,7 @@ bool AP_GPS_NMEA::is_healthy(void) const
 
     case AP_GPS::GPS_TYPE_HEMI:
         // we should be getting HDR for yaw
-        return _last_yaw_ms != 0;
-
-    case AP_GPS::GPS_TYPE_UM982:
-        // we should be getting HDR for yaw
-        return _last_yaw_ms != 0;    
+        return _last_yaw_ms != 0; 
 
     case AP_GPS::GPS_TYPE_ALLYSTAR:
         // we should get vertical velocity and accuracy from PHD
