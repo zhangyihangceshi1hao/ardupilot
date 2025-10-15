@@ -885,6 +885,23 @@ void AP_GPS_NMEA::send_config(void)
     }
 #endif // AP_GPS_NMEA_UNICORE_ENABLED
 
+    case AP_GPS::GPS_TYPE_UM982: {
+        port->printf(
+            "\r\nunlogall\r\n"
+            "GPGGA 0.2\r\n"
+            "GPRMC 0.2\r\n"
+            "GPVTG 0.2\r\n"
+            "GPHDT 0.2\r\n");
+
+        if (!_have_unicore_versiona) {
+            port->printf("VERSIONA\r\n");
+            if (gps._save_config) {
+                port->printf("SAVECONFIG\r\n");
+            }
+        }
+        break;
+    }
+
     case AP_GPS::GPS_TYPE_HEMI: {
         port->printf(
         "$JATT,NMEAHE,0\r\n" /* Prefix of GP on the HDT message */      \
@@ -929,6 +946,10 @@ bool AP_GPS_NMEA::is_healthy(void) const
         // we should be getting HDR for yaw
         return _last_yaw_ms != 0;
 
+    case AP_GPS::GPS_TYPE_UM982:
+        // we should be getting HDR for yaw
+        return _last_yaw_ms != 0;    
+
     case AP_GPS::GPS_TYPE_ALLYSTAR:
         // we should get vertical velocity and accuracy from PHD
         return _last_vvelocity_ms != 0 && _last_vaccuracy_ms != 0;
@@ -946,6 +967,7 @@ bool AP_GPS_NMEA::get_lag(float &lag_sec) const
 #if AP_GPS_NMEA_UNICORE_ENABLED
     case AP_GPS::GPS_TYPE_UNICORE_MOVINGBASE_NMEA:
     case AP_GPS::GPS_TYPE_UNICORE_NMEA:
+    case AP_GPS::GPS_TYPE_UM982:
         lag_sec = 0.14;
         break;
 #endif // AP_GPS_NMEA_UNICORE_ENABLED

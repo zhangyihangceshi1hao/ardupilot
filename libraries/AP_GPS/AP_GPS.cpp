@@ -827,7 +827,8 @@ AP_GPS_Backend *AP_GPS::_detect_instance(uint8_t instance)
                     _type[instance] == GPS_TYPE_UNICORE_NMEA ||
                     _type[instance] == GPS_TYPE_UNICORE_MOVINGBASE_NMEA ||
 #endif
-                    _type[instance] == GPS_TYPE_ALLYSTAR) &&
+                    _type[instance] == GPS_TYPE_ALLYSTAR ||
+                    _type[instance] == GPS_TYPE_UM982) &&
                    AP_GPS_NMEA::_detect(dstate->nmea_detect_state, data)) {
             return new AP_GPS_NMEA(*this, state[instance], _port[instance]);
         }
