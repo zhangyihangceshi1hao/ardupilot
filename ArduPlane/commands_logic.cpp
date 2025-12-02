@@ -736,9 +736,12 @@ bool Plane::verify_nav_wp_new(const AP_Mission::Mission_Command& cmd)
     }
 
     float acceptance_distance_m = 0; // default to: if overflown - let it fly up to the point
-    // if (cmd.p1 == 1) {
+    if (cmd.p1 == 0) {
+        acceptance_distance_m = get_wp_radius();
+    }
+    if (cmd.p1 == 1) {
         acceptance_distance_m = nav_controller->turn_distance(get_wp_radius(), auto_state.next_turn_angle);
-    // }
+    }
     const float wp_dist = current_loc.get_distance(flex_next_WP_loc);
     if (wp_dist <= acceptance_distance_m) {
         gcs().send_text(MAV_SEVERITY_INFO, "Reached waypoint #%i dist %um",
