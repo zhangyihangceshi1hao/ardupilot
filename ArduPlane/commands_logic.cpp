@@ -56,7 +56,9 @@ bool Plane::start_command(const AP_Mission::Mission_Command& cmd)
     case MAV_CMD_NAV_WAYPOINT:                  // Navigate to Waypoint
         do_nav_wp(cmd);
         break;
-
+    case MAV_CMD_NAV_NEW_WAYPOINT:                  // Navigate to Waypoint
+        do_nav_wp(cmd);
+        break;
     case MAV_CMD_NAV_LAND:              // LAND to Waypoint
 #if HAL_QUADPLANE_ENABLED
         if (quadplane.is_vtol_land(cmd.id)) {
@@ -243,7 +245,8 @@ bool Plane::verify_command(const AP_Mission::Mission_Command& cmd)        // Ret
 
     case MAV_CMD_NAV_WAYPOINT:
         return verify_nav_wp(cmd);
-
+    case MAV_CMD_NAV_NEW_WAYPOINT:
+        return verify_nav_wp_new(cmd);
     case MAV_CMD_NAV_LAND:
 #if HAL_QUADPLANE_ENABLED
         if (quadplane.is_vtol_land(cmd.id)) {
@@ -703,7 +706,60 @@ bool Plane::verify_nav_wp(const AP_Mission::Mission_Command& cmd)
 
     return false;
 }
+bool Plane::verify_nav_wp_new(const AP_Mission::Mission_Command& cmd)
+{
+    steer_state.hold_course_cd = -1;
 
+    // depending on the pass by flag either go to waypoint in regular manner or
+    // fly past it for set distance along the line of waypoints
+    Location flex_next_WP_loc = next_WP_loc;
+
+    uint8_t cmd_passby = 0; // distance in meters to pass beyond the wp
+
+    if (auto_state.crosstrack) {
+        nav_controller->update_waypoint(prev_WP_loc, flex_next_WP_loc);
+    } else {
+        nav_controller->update_waypoint(current_loc, flex_next_WP_loc);
+    }
+
+    // see if the user has specified a maximum distance to waypoint
+    // If override with p3 - then this is not used as it will overfly badly
+    if (g.waypoint_max_radius > 0 &&
+        auto_state.wp_distance > (uint16_t)g.waypoint_max_radius) {
+        if (current_loc.past_interval_finish_line(prev_WP_loc, flex_next_WP_loc)) {
+            // this is needed to ensure completion of the waypoint
+            if (cmd_passby == 0) {
+                prev_WP_loc = current_loc;
+            }
+        }
+        return false;
+    }
+
+    float acceptance_distance_m = 0; // default to: if overflown - let it fly up to the point
+     if (cmd.p1 == 1) {
+        acceptance_distance_m = get_wp_radius();
+    }
+    if (cmd.p1 == 4) {
+        acceptance_distance_m = nav_controller->turn_distance(get_wp_radius(), auto_state.next_turn_angle);
+    }
+    const float wp_dist = current_loc.get_distance(flex_next_WP_loc);
+    if (wp_dist <= acceptance_distance_m) {
+        gcs().send_text(MAV_SEVERITY_INFO, "Reached waypoint #%i dist %um",
+                          (unsigned)mission.get_current_nav_cmd().index,
+                          (unsigned)current_loc.get_distance(flex_next_WP_loc));
+        return true;
+    }
+
+    // have we flown past the waypoint?
+    if (current_loc.past_interval_finish_line(prev_WP_loc, flex_next_WP_loc)) {
+        gcs().send_text(MAV_SEVERITY_INFO, "Passed waypoint #%i dist %um",
+                          (unsigned)mission.get_current_nav_cmd().index,
+                          (unsigned)current_loc.get_distance(flex_next_WP_loc));
+        return true;
+    }
+
+    return false;
+}
 bool Plane::verify_loiter_unlim(const AP_Mission::Mission_Command &cmd)
 {
     // else use mission radius
