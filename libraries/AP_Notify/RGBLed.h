@@ -82,6 +82,8 @@ private:
     DEFINE_COLOUR_SEQUENCE(colour,colour,colour,colour,colour,colour,colour,colour,colour,colour)
 #define DEFINE_COLOUR_SEQUENCE_ALTERNATE(colour1, colour2)                      \
     DEFINE_COLOUR_SEQUENCE(colour1,colour2,colour1,colour2,colour1,colour2,colour1,colour2,colour1,colour2)
+#define DEFINE_COLOUR_SEQUENCE_SLOW_TWO_COLOUR(colour1, colour2)                      \
+    DEFINE_COLOUR_SEQUENCE(colour1,colour1,BLACK,BLACK,BLACK,colour2,colour2,BLACK,BLACK,BLACK)
 
 #define BLACK  0
 #define BLUE   1
@@ -93,9 +95,11 @@ private:
     const uint32_t sequence_initialising = DEFINE_COLOUR_SEQUENCE_ALTERNATE(RED,BLUE);
     const uint32_t sequence_trim_or_esc = DEFINE_COLOUR_SEQUENCE(RED,BLUE,GREEN,RED,BLUE,GREEN,RED,BLUE,GREEN,BLACK);
     const uint32_t sequence_failsafe_leak = DEFINE_COLOUR_SEQUENCE_FAILSAFE(WHITE);
-    const uint32_t sequence_failsafe_ekf = DEFINE_COLOUR_SEQUENCE_FAILSAFE(RED);
+    const uint32_t sequence_failsafe_ekf = DEFINE_COLOUR_SEQUENCE_FAILSAFE(BLUE);
     const uint32_t sequence_failsafe_gps_glitching = DEFINE_COLOUR_SEQUENCE_FAILSAFE(BLUE);
     const uint32_t sequence_failsafe_radio_or_battery = DEFINE_COLOUR_SEQUENCE_FAILSAFE(BLACK);
+    const uint32_t sequence_failsafe_battery = DEFINE_COLOUR_SEQUENCE_SLOW_TWO_COLOUR(RED,BLACK);
+    const uint32_t sequence_failsafe_compass = DEFINE_COLOUR_SEQUENCE_SLOW_TWO_COLOUR(RED,YELLOW);
 
     const uint32_t sequence_armed = DEFINE_COLOUR_SEQUENCE_SOLID(GREEN);
     const uint32_t sequence_armed_nogps = DEFINE_COLOUR_SEQUENCE_SOLID(BLUE);
@@ -103,6 +107,17 @@ private:
     const uint32_t sequence_disarmed_good_dgps = DEFINE_COLOUR_SEQUENCE_ALTERNATE(GREEN,BLACK);
     const uint32_t sequence_disarmed_good_gps = DEFINE_COLOUR_SEQUENCE_SLOW(GREEN);
     const uint32_t sequence_disarmed_bad_gps = DEFINE_COLOUR_SEQUENCE_SLOW(BLUE);
+
+    // added by NFCY
+    const uint32_t sequence_althold_mode_armed = DEFINE_COLOUR_SEQUENCE_SOLID(WHITE);  // 定高模式解锁
+    const uint32_t sequence_althold_mode_disarmd_good_dgps = DEFINE_COLOUR_SEQUENCE_ALTERNATE(WHITE,BLACK);  // 定高模式，高精度定位，白灯快闪
+    const uint32_t sequence_althold_mode_disarmd_good_gps = DEFINE_COLOUR_SEQUENCE_SLOW(WHITE);  // 定高模式，普通定位，白灯慢闪
+    const uint32_t sequence_althold_mode_disarmd_bad_gps = DEFINE_COLOUR_SEQUENCE_SLOW_TWO_COLOUR(WHITE,BLUE);  // 定高模式，未定位，白蓝交替闪烁
+
+    const uint32_t sequence_GPS_mode_armed = DEFINE_COLOUR_SEQUENCE_SOLID(GREEN);  // loiter或poshold模式解锁
+    const uint32_t sequence_GPS_mode_disarmd_good_dgps = DEFINE_COLOUR_SEQUENCE_ALTERNATE(GREEN,BLACK);  // loiter或poshold模式，高精度定位，绿灯快闪
+    const uint32_t sequence_GPS_mode_disarmd_good_gps = DEFINE_COLOUR_SEQUENCE_SLOW(GREEN);  // loiter或poshold模式，普通定位，绿灯慢闪
+    const uint32_t sequence_GPS_mode_disarmd_bad_gps = DEFINE_COLOUR_SEQUENCE_SLOW_TWO_COLOUR(GREEN,BLUE);  // 定高模式，未定位，绿蓝交替闪烁
 
     uint8_t last_step;
     enum rgb_source_t {
