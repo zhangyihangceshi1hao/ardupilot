@@ -617,6 +617,9 @@ bool ModeAuto::start_command(const AP_Mission::Mission_Command& cmd)
     case MAV_CMD_NAV_WAYPOINT:                  // 16  Navigate to Waypoint
         do_nav_wp(cmd);
         break;
+    case MAV_CMD_NAV_NEW_WAYPOINT:                  // 16  Navigate to Waypoint
+        do_nav_new_wp(cmd);
+        break;
 
     case MAV_CMD_NAV_VTOL_LAND:
     case MAV_CMD_NAV_LAND:              // 21 LAND to Waypoint
@@ -857,6 +860,7 @@ bool ModeAuto::verify_command(const AP_Mission::Mission_Command& cmd)
         break;
 
     case MAV_CMD_NAV_WAYPOINT:
+    case MAV_CMD_NAV_NEW_WAYPOINT:
         cmd_complete = verify_nav_wp(cmd);
         break;
 
@@ -1499,6 +1503,71 @@ void ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
     }
 }
 
+// do_nav_new_wp - initiate move to next waypoint
+void ModeAuto::do_nav_new_wp(const AP_Mission::Mission_Command& cmd)
+{
+    // calculate default location used when lat, lon or alt is zero
+    Location default_loc = copter.current_loc;
+    if (wp_nav->is_active() && wp_nav->reached_wp_destination()) {
+        if (!wp_nav->get_wp_destination_loc(default_loc)) {
+            // this should never happen
+            INTERNAL_ERROR(AP_InternalError::error_t::flow_of_control);
+        }
+    }
+
+    // get waypoint's location from command and send to wp_nav
+    const Location target_loc = loc_from_cmd(cmd, default_loc);
+
+    if (!wp_start(target_loc)) {
+        // failure to set next destination can only be because of missing terrain data
+        copter.failsafe_terrain_on_event();
+        return;
+    }
+
+    // this will be used to remember the time in millis after we reach or pass the WP.
+    loiter_time = 0;
+    // this is the delay, stored in seconds
+    loiter_time_max = 0;
+
+    uint8_t cmd_type = HIGHBYTE(cmd.p1);
+    uint8_t stop_time = LOWBYTE(cmd.p1);
+
+    if (cmd_type == 1) {
+        loiter_time_max = 0;
+    }
+
+    if (cmd_type == 2) {
+        loiter_time_max = MAX(1, stop_time);
+    }
+
+    if (cmd_type == 3) {
+        loiter_time_max = 1;
+    }
+
+    if (cmd_type == 4) {
+        loiter_time_max = 0;
+    }
+
+    if (cmd_type == 5) {
+        loiter_time_max = 1;
+        // auto_yaw.set_mode(AutoYaw::Mode::FIXED);
+        auto_yaw.set_fixed_yaw((int16_t)cmd.p4, 0, 0, 0);
+    }
+
+    // set next destination if necessary
+    if (!set_next_wp(cmd, target_loc)) {
+        // failure to set next destination can only be because of missing terrain data
+        copter.failsafe_terrain_on_event();
+        return;
+    }
+
+    wp_nav->set_speed_xy(cmd.p2*100);
+    wp_nav->set_speed_up(cmd.p3*100);
+    wp_nav->set_speed_down(cmd.p3*100);
+
+}
+
+
 // checks the next mission command and adds it as a destination if necessary
 // supports both straight line and spline waypoints
 // cmd should be the current command
@@ -1522,6 +1591,7 @@ bool ModeAuto::set_next_wp(const AP_Mission::Mission_Command& current_cmd, const
     case MAV_CMD_NAV_WAYPOINT:
     case MAV_CMD_NAV_LOITER_UNLIM:
     case MAV_CMD_NAV_LOITER_TIME:
+    case MAV_CMD_NAV_NEW_WAYPOINT:
     case MAV_CMD_NAV_PAYLOAD_PLACE: {
         const Location dest_loc = loc_from_cmd(current_cmd, default_loc);
         const Location next_dest_loc = loc_from_cmd(next_cmd, dest_loc);
