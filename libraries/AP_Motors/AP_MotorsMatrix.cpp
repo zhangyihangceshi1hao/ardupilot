@@ -791,12 +791,18 @@ bool AP_MotorsMatrix::setup_hexa_matrix(motor_frame_type frame_type)
     case MOTOR_FRAME_TYPE_X: {
         _frame_type_string = "X";
         static const AP_MotorsMatrix::MotorDef motors[] {
-            {   90, AP_MOTORS_MATRIX_YAW_FACTOR_CW,   2 },
-            {  -90, AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  5 },
-            {  -30, AP_MOTORS_MATRIX_YAW_FACTOR_CW,   6 },
-            {  150, AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  3 },
+            // {   90, AP_MOTORS_MATRIX_YAW_FACTOR_CW,   2 },
+            // {  -90, AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  5 },
+            // {  -30, AP_MOTORS_MATRIX_YAW_FACTOR_CW,   6 },
+            // {  150, AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  3 },
+            // {   30, AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  1 },
+            // { -150, AP_MOTORS_MATRIX_YAW_FACTOR_CW,   4 },
             {   30, AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  1 },
+            {  -30, AP_MOTORS_MATRIX_YAW_FACTOR_CW,   2 },
+            {  -90, AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  3 },
             { -150, AP_MOTORS_MATRIX_YAW_FACTOR_CW,   4 },
+            {  150, AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  5 },
+            {   90, AP_MOTORS_MATRIX_YAW_FACTOR_CW,   6 },
         };
         add_motors(motors, ARRAY_SIZE(motors));
         break;
@@ -874,14 +880,22 @@ bool AP_MotorsMatrix::setup_octa_matrix(motor_frame_type frame_type)
     case MOTOR_FRAME_TYPE_X: {
         _frame_type_string = "X";
         static const AP_MotorsMatrix::MotorDef motors[] {
-            {   22.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,   1 },
-            { -157.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,   5 },
-            {   67.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  2 },
-            {  157.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  4 },
-            {  -22.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  8 },
-            { -112.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  6 },
-            {  -67.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,   7 },
-            {  112.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,   3 },
+            // {   22.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,   1 },
+            // { -157.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,   5 },
+            // {   67.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  2 },
+            // {  157.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  4 },
+            // {  -22.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  8 },
+            // { -112.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW,  6 },
+            // {  -67.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,   7 },
+            // {  112.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,   3 },
+            {   22.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW, 1 },
+            {  -22.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,  2 },
+            {  -67.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW, 3 },
+            { -112.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,  4 },
+            { -157.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW, 5 },
+            {  157.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,  6 },
+            {  112.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CCW, 7 },
+            {   67.5f,  AP_MOTORS_MATRIX_YAW_FACTOR_CW,  8 },
         };
         add_motors(motors, ARRAY_SIZE(motors));
         break;
