@@ -9,9 +9,6 @@
 #define LIDE_MSG_RATE_HZ_MIN 10
 #define LIDE_MSG_RATE_HZ_MAX 100
 
-#define LIDE_NODE_ID_START 1
-#define LIDE_NODE_ID_MAX 8  // 最大支持8个发动机节点
-
 #define LIDE_THROTTLE_MAX 1000  // 油门最大值，对应100%
 #define LIDE_THROTTLE_MIN 0
 
@@ -94,8 +91,8 @@ typedef struct {
     // 电子节气门
     uint8_t throttle1_pos;             // 节气门1开度
     uint8_t throttle1_deviation;       // 节气门1偏差
-    uint8_t throttle2_pos;             // 节气门2开度 (四缸)
-    uint8_t throttle2_deviation;       // 节气门2偏差 (四缸)
+    uint8_t throttle2_pos;             // 节气门2开度
+    uint8_t throttle2_deviation;       // 节气门2偏差
     
     // 电气系统
     float system_voltage;              // 系统电压
@@ -125,6 +122,8 @@ public:
 
     // 获取实例
     static AP_CAN_LIDE *get_can_lide(uint8_t driver_index);
+    // 获取全局实例（不需要知道driver_index）
+    static AP_CAN_LIDE* get_global_instance();
 
     // 初始化接口
     void init(uint8_t driver_index, bool enable_filters) override;
@@ -133,22 +132,52 @@ public:
     // 主循环更新
     void update();
 
-    // 发动机控制接口
-    void set_throttle(uint8_t engine_id, uint16_t throttle);  // 0-1000对应0-100%
-    void set_start_cmd(uint8_t engine_id, bool start);
-    void set_stop_cmd(uint8_t engine_id, bool stop);
-    void set_heating_cmd(uint8_t engine_id, bool heating);
-    void set_altitude(uint8_t engine_id, uint16_t altitude);
-    void set_airspeed(uint8_t engine_id, uint8_t airspeed);
+    // ============ 发动机控制接口 ============
+    void set_throttle(uint16_t throttle);  // 0-1000对应0-100%
+    void set_start_cmd(bool start);
+    void set_stop_cmd(bool stop);
+    void set_heating_cmd(bool heating);
+    void set_altitude(uint16_t altitude);
+    void set_airspeed(uint8_t airspeed);
     
-    // 状态查询接口
-    bool is_engine_online(uint8_t engine_id);
-    bool is_engine_running(uint8_t engine_id);
-    uint16_t get_engine_rpm(uint8_t engine_id);
-    float get_engine_temperature(uint8_t engine_id, uint8_t cylinder);
-    float get_fuel_consumption(uint8_t engine_id);
-    uint8_t get_engine_status(uint8_t engine_id);
-    bool has_fault(uint8_t engine_id);
+    // ============ 状态查询接口 ============
+    bool is_engine_online() const;
+    bool is_engine_running() const;
+    uint16_t get_engine_rpm() const;
+    float get_engine_temperature(uint8_t cylinder) const;
+    float get_fuel_consumption() const;
+    uint8_t get_engine_status() const;
+    bool has_fault() const;
+    
+    // ============ 新增获取函数 ============
+    float get_engine_runtime_hours() const;
+    uint16_t get_engine_runtime_minutes() const;
+    uint16_t get_fuel_consumption_ml() const;
+    float get_fuel_rate_instant() const;
+    uint8_t get_maintenance_status() const;
+    uint8_t get_throttle_feedback() const;
+    uint8_t get_fault_byte(uint8_t index) const;
+    float get_exhaust_temperature(uint8_t cylinder) const;
+    float get_fuel_pressure_target() const;
+    float get_fuel_pressure_actual() const;
+    float get_rail_pressure_target() const;
+    float get_rail_pressure_actual() const;
+    float get_system_voltage() const;
+    uint16_t get_oil_consumption() const;
+    float get_intake_temperature() const;
+    float get_oil_level() const;
+    float get_throttle1_position() const;
+    float get_throttle1_deviation() const;
+    float get_throttle2_position() const;
+    float get_throttle2_deviation() const;
+    float get_environment_pressure() const;
+    float get_cooling_door_duty(uint8_t door_index) const;
+    float get_adjust_coefficient(uint8_t index) const;
+    bool get_heating_status() const;
+    uint16_t get_maintenance_time_remaining() const;
+    uint8_t get_engine_health_score() const;
+    uint8_t get_total_fault_count() const;
+    bool get_specific_fault_status(uint8_t fault_byte, uint8_t fault_bit) const;
     
     // 预上电检查
     bool pre_arm_check(char* reason, uint8_t reason_len);
@@ -162,7 +191,7 @@ private:
     bool read_frame(AP_HAL::CANFrame &recv_frame, uint64_t timeout);
     
     // 发送控制命令
-    void send_control_command(uint8_t engine_id);
+    void send_control_command();
     
     // 处理接收到的状态帧
     void process_status_frame(const AP_HAL::CANFrame &frame);
@@ -181,11 +210,10 @@ private:
     AP_HAL::CANIface* _can_iface;
     HAL_EventHandle _event_handle;
     
-    // 发动机数组
-    LIDE_Engine_t _engines[LIDE_NODE_ID_MAX];
+    // 只有一个发动机
+    LIDE_Engine_t _engine;
     
     // 参数
-    AP_Int32 _engine_bm;       // 发动机选择位掩码
     AP_Int16 _update_hz;       // 更新频率
     AP_Int8 _node_id_offset;   // 节点ID偏移
     

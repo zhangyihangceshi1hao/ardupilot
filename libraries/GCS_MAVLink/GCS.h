@@ -23,6 +23,7 @@
 #include <AP_GPS/AP_GPS.h>
 #include <AP_Mount/AP_Mount.h>
 #include <AP_SerialManager/AP_SerialManager.h>
+#include <AP_CAN_LIDE/AP_CAN_LIDE.h>
 
 #include "ap_message.h"
 
@@ -388,6 +389,35 @@ public:
     void send_uavionix_adsb_out_status() const;
     void send_autopilot_state_for_gimbal_device() const;
 
+    // 发送砺德CAN控制命令消息到飞控 (ID: 12921)
+    void handle_engine_control(const mavlink_message_t &msg) const;
+
+    // 发送砺德CAN状态消息1 - 发动机系统状态消息到地面站 (ID: 12922)
+    void send_engine_status1() const;
+
+    // 发送砺德CAN状态消息2 - 油门反馈和缸头温度消息到地面站 (ID: 12923)
+    void send_engine_status2() const;
+
+    // 发送砺德CAN状态消息3 - 排气温度和冷风门消息到地面站 (ID: 12924)
+    void send_engine_status3() const;
+
+    // 发送砺德CAN状态消息4 - 燃油系统和滑油消耗消息到地面站 (ID: 12925)
+    void send_engine_status4() const;
+
+    // 发送砺德CAN状态消息5 - 节气门和环境参数消息到地面站 (ID: 12926)
+    void send_engine_status5() const;
+
+    // 发送砺德CAN状态消息6 - 故障状态字节1-6消息到地面站 (ID: 12927)
+    void send_engine_status6() const;
+
+    // 发送砺德CAN状态消息7 - 故障状态字节7-8和调整系数消息到地面站 (ID: 12928)
+    void send_engine_status7() const;
+
+    // 发送砺德发动机汇总状态消息到地面站 (ID: 12929)
+    void send_engine_summary() const;
+
+
+
     // lock a channel, preventing use by MAVLink
     void lock(bool _lock) {
         _locked = _lock;
@@ -715,7 +745,7 @@ protected:
     bool location_from_command_t(const mavlink_command_int_t &in, Location &out);
 
 private:
-
+    
     const AP_SerialManager::UARTState *uartstate;
 
     // last time we got a non-zero RSSI from RADIO_STATUS

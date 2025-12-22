@@ -5534,6 +5534,227 @@ void GCS_MAVLINK::send_autopilot_state_for_gimbal_device() const
         0);     // landed_state (see MAV_LANDED_STATE)
 }
 
+
+   
+
+// 处理从地面站收到的砺德CAN控制命令消息到飞控 (ID: 12921)
+void GCS_MAVLINK::handle_engine_control(const mavlink_message_t &msg) const
+{
+    mavlink_lide_can_control_t engine_control;
+    mavlink_msg_lide_can_control_decode(&msg, &engine_control);
+    
+    // 使用全局实例（不需要知道driver_index）
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    
+    if (lide_driver == nullptr) {
+        send_text(MAV_SEVERITY_WARNING, "未找到砺德CAN驱动");
+        return;
+    }
+    
+
+    
+    // 设置油门
+    lide_driver->set_throttle( engine_control.throttle_request);
+    
+    // 解析控制命令字节
+    uint8_t control_cmd = engine_control.control_command;
+    
+    // 停机命令
+    if (control_cmd & 0x01) {
+        lide_driver->set_stop_cmd(true);
+    }
+    
+    // 加热命令
+    if (control_cmd & 0x20) {  // 加热有效位
+        lide_driver->set_heating_cmd((control_cmd & 0x02) != 0);
+    }
+    
+    // 启动命令
+    if (control_cmd & 0x10) {  // 启动有效位
+        lide_driver->set_start_cmd((control_cmd & 0x04) != 0);
+    }
+    
+    // 发送确认
+    send_text(MAV_SEVERITY_INFO, "控制命令已处理: 引擎" );
+}
+
+// 发送砺德CAN状态消息1 - 发动机系统状态消息到地面站 (ID: 12922)
+void GCS_MAVLINK::send_engine_status1() const
+{
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+        return;
+    }
+    
+    mavlink_msg_lide_can_status1_send(
+        chan,
+        lide_driver->get_engine_status(),          // engine_system_status
+        lide_driver->is_engine_running(),          // engine_running
+        lide_driver->get_maintenance_status(),     // maintenance_status
+        lide_driver->get_engine_runtime_hours(),   // engine_runtime_hours
+        lide_driver->get_engine_runtime_minutes(), // engine_runtime_minutes
+        lide_driver->get_fuel_consumption_ml(),    // fuel_consumption_ml
+        lide_driver->get_fuel_rate_instant()       // fuel_rate_instant
+    );
+}
+
+// 发送砺德CAN状态消息2 - 油门反馈和缸头温度消息到地面站 (ID: 12923)
+void GCS_MAVLINK::send_engine_status2() const
+{
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+        return;
+    }
+    
+    mavlink_msg_lide_can_status2_send(
+        chan,
+        lide_driver->get_throttle_feedback(),  // throttle_feedback
+        lide_driver->get_engine_rpm(),         // engine_rpm
+        lide_driver->get_engine_temperature(0), // cylinder_temp_1
+        lide_driver->get_engine_temperature(1), // cylinder_temp_2
+        lide_driver->get_engine_temperature(2), // cylinder_temp_3
+        lide_driver->get_engine_temperature(3)  // cylinder_temp_4
+    );
+}
+
+// 发送砺德CAN状态消息3 - 排气温度和冷风门消息到地面站 (ID: 12924)
+void GCS_MAVLINK::send_engine_status3() const
+{
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+        return;
+    }
+    
+    mavlink_msg_lide_can_status3_send(
+        chan,
+        lide_driver->get_exhaust_temperature(0), // exhaust_temp_1
+        lide_driver->get_exhaust_temperature(1), // exhaust_temp_2
+        lide_driver->get_exhaust_temperature(2), // exhaust_temp_3
+        lide_driver->get_exhaust_temperature(3), // exhaust_temp_4
+        lide_driver->get_cooling_door_duty(0),   // cooling_door_duty_1
+        lide_driver->get_cooling_door_duty(1),   // cooling_door_duty_2
+        lide_driver->get_cooling_door_duty(2),   // cooling_door_duty_3
+        lide_driver->get_cooling_door_duty(3)    // cooling_door_duty_4
+    );
+}
+
+// 发送砺德CAN状态消息4 - 燃油系统和滑油消耗消息到地面站 (ID: 12925)
+void GCS_MAVLINK::send_engine_status4() const
+{
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+        return;
+    }
+    
+    mavlink_msg_lide_can_status4_send(
+        chan,
+        lide_driver->get_fuel_pressure_target(),  // fuel_pressure_target
+        lide_driver->get_fuel_pressure_actual(),  // fuel_pressure_actual
+        0, // fuel_pump_rpm - 需要后续添加对应的API
+        lide_driver->get_rail_pressure_target(),  // rail_pressure_target
+        lide_driver->get_rail_pressure_actual(),  // rail_pressure_actual
+        lide_driver->get_system_voltage(),        // system_voltage
+        0  // oil_consumption - 需要后续添加对应的API
+    );
+}
+
+// 发送砺德CAN状态消息5 - 节气门和环境参数消息到地面站 (ID: 12926)
+void GCS_MAVLINK::send_engine_status5() const
+{
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+        return;
+    }
+    
+    mavlink_msg_lide_can_status5_send(
+        chan,
+        lide_driver->get_throttle1_deviation(),   // throttle1_deviation
+        lide_driver->get_throttle1_position(),    // throttle1_position
+        lide_driver->get_throttle2_deviation(),   // throttle2_deviation
+        lide_driver->get_throttle2_position(),    // throttle2_position
+        lide_driver->get_intake_temperature(),    // intake_temperature
+        lide_driver->get_environment_pressure(),  // environment_pressure
+        lide_driver->get_oil_level()              // oil_level
+    );
+}
+
+// 发送砺德CAN状态消息6 - 故障状态字节1-6消息到地面站 (ID: 12927)
+void GCS_MAVLINK::send_engine_status6() const
+{
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+        return;
+    }
+    
+    mavlink_msg_lide_can_status6_send(
+        chan,
+        lide_driver->get_fault_byte(0), // fault_byte1
+        lide_driver->get_fault_byte(1), // fault_byte2
+        lide_driver->get_fault_byte(2), // fault_byte3
+        lide_driver->get_fault_byte(3), // fault_byte4
+        lide_driver->get_fault_byte(4), // fault_byte5
+        lide_driver->get_fault_byte(5)  // fault_byte6
+    );
+}
+
+// 发送砺德CAN状态消息7 - 故障状态字节7-8和调整系数消息到地面站 (ID: 12928)
+void GCS_MAVLINK::send_engine_status7() const
+{
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+        return;
+    }
+    
+    mavlink_msg_lide_can_status7_send(
+        chan,
+        lide_driver->get_fault_byte(6), // fault_byte7
+        lide_driver->get_fault_byte(7), // fault_byte8
+        lide_driver->get_adjust_coefficient(0), // adjust_coefficient1
+        lide_driver->get_adjust_coefficient(1), // adjust_coefficient2
+        lide_driver->get_adjust_coefficient(2), // adjust_coefficient3
+        lide_driver->get_adjust_coefficient(3)  // adjust_coefficient4
+    );
+}
+
+// 发送砺德发动机汇总状态消息到地面站 (ID: 12929)
+void GCS_MAVLINK::send_engine_summary() const
+{
+    AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
+    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+        return;
+    }
+    
+    // 计算最高温度
+    float max_cylinder_temp = 0;
+    float max_exhaust_temp = 0;
+    for (int i = 0; i < 4; i++) {
+        float cyl_temp = lide_driver->get_engine_temperature(i);
+        float exh_temp = lide_driver->get_exhaust_temperature(i);
+        if (cyl_temp > max_cylinder_temp) max_cylinder_temp = cyl_temp;
+        if (exh_temp > max_exhaust_temp) max_exhaust_temp = exh_temp;
+    }
+    
+    mavlink_msg_lide_engine_summary_send(
+        chan,
+        lide_driver->get_engine_status(),               // engine_status
+        lide_driver->get_engine_rpm(),                  // engine_rpm
+        lide_driver->get_throttle_feedback(),           // throttle_feedback
+        max_cylinder_temp,                              // cylinder_temp_max
+        max_exhaust_temp,                               // exhaust_temp_max
+        lide_driver->get_fuel_pressure_target(),        // fuel_pressure_target
+        lide_driver->get_rail_pressure_target(),        // rail_pressure_target
+        lide_driver->get_system_voltage(),              // system_voltage
+        lide_driver->get_engine_runtime_hours(),        // engine_runtime_hours
+        lide_driver->get_engine_runtime_minutes(),      // engine_runtime_minutes
+        lide_driver->get_total_fault_count(),           // fault_count
+        lide_driver->get_maintenance_status(),          // maintenance_status
+        lide_driver->get_engine_health_score(),         // engine_health_score
+        lide_driver->get_maintenance_time_remaining()   // maintenance_time_remaining
+    );
+}
+
+
+
 void GCS_MAVLINK::send_received_message_deprecation_warning(const char * message)
 {
     // we're not expecting very many of these ever, so a tiny bit of
