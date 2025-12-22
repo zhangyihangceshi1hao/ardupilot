@@ -42,7 +42,7 @@
 
 #include <AP_Common/ExpandingString.h>
 #include <AP_Common/sorting.h>
-
+#include <AP_CAN_LIDE/AP_CAN_LIDE.h>
 #define LOG_TAG "CANMGR"
 #define LOG_BUFFER_SIZE 1024
 
@@ -234,6 +234,16 @@ void AP_CANManager::init()
 
             AP_Param::load_object_from_eeprom((AP_PiccoloCAN*)_drivers[drv_num], AP_PiccoloCAN::var_info);
 #endif
+        } else if (drv_type[drv_num] == Driver_Type_CAN_LIDE) {
+            _drivers[drv_num] = _drv_param[drv_num]._can_lide = new AP_CAN_LIDE;
+
+            if (_drivers[drv_num] == nullptr) {
+                AP_BoardConfig::allocation_error("CAN_ESC %d", drv_num + 1);
+                continue;
+            }
+
+            AP_Param::load_object_from_eeprom((AP_CAN_LIDE*)_drivers[drv_num], AP_CAN_LIDE::var_info);
+        
         } else if (drv_type[drv_num] == Driver_Type_CANTester) {
 #if HAL_NUM_CAN_IFACES > 1 && !HAL_MINIMIZE_FEATURES && HAL_ENABLE_CANTESTER
             _drivers[drv_num] = _drv_param[drv_num]._testcan = new CANTester;

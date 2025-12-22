@@ -70,6 +70,7 @@ public:
         Driver_Type_Scripting = 10,
         Driver_Type_Benewake = 11,
         Driver_Type_Scripting2 = 12,
+        Driver_Type_CAN_LIDE = 13,
     };
 
     void init(void);
@@ -159,6 +160,7 @@ private:
         AP_CANDriver* _uavcan;
         AP_CANDriver* _kdecan;
         AP_CANDriver* _piccolocan;
+        AP_CANDriver* _can_lide;
     };
 
     CANIface_Params _interfaces[HAL_NUM_CAN_IFACES];

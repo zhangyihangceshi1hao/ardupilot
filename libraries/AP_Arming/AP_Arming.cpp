@@ -53,7 +53,7 @@
 #include <AP_SerialManager/AP_SerialManager.h>
 #include <AP_Vehicle/AP_Vehicle_Type.h>
 #include <AP_Scheduler/AP_Scheduler.h>
-
+#include <AP_CAN_LIDE/AP_CAN_LIDE.h>
 #if HAL_MAX_CAN_PROTOCOL_DRIVERS
   #include <AP_CANManager/AP_CANManager.h>
   #include <AP_Common/AP_Common.h>
@@ -1191,6 +1191,19 @@ bool AP_Arming::can_checks(bool report)
                 case AP_CANManager::Driver_Type_Scripting2:
                 case AP_CANManager::Driver_Type_Benewake:
                     break;
+                case AP_CANManager::Driver_Type_CAN_LIDE:
+                {
+                    AP_CAN_LIDE *ap_can_lide = AP_CAN_LIDE::get_can_lide(i);
+
+                    if (ap_can_lide != nullptr &&
+                        !ap_can_lide->pre_arm_check(fail_msg,
+                                                ARRAY_SIZE(fail_msg))) {
+                        check_failed(ARMING_CHECK_SYSTEM, report,
+                                     "CAN LIDE: %s", fail_msg);
+                        return false;
+                    }
+                    break;
+                }
             }
         }
     }
