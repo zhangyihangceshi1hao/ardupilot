@@ -4033,6 +4033,10 @@ void GCS_MAVLINK::handle_common_message(const mavlink_message_t &msg)
         AP_CheckFirmware::handle_msg(chan, msg);
         break;
 #endif
+
+    case MAVLINK_MSG_ID_LIDE_CAN_CONTROL:
+        handle_engine_control(msg);
+        break;
     }
 
 }
@@ -5581,11 +5585,12 @@ void GCS_MAVLINK::handle_engine_control(const mavlink_message_t &msg) const
 // 发送砺德CAN状态消息1 - 发动机系统状态消息到地面站 (ID: 12922)
 void GCS_MAVLINK::send_engine_status1() const
 {
+    send_text(MAV_SEVERITY_INFO, "send_engine_status1" );
     AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
     if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
         return;
     }
-    
+    send_text(MAV_SEVERITY_INFO, "send_engine_status1===1" );
     mavlink_msg_lide_can_status1_send(
         chan,
         lide_driver->get_engine_status(),          // engine_system_status
@@ -5782,6 +5787,23 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
     case MSG_ATTITUDE:
         CHECK_PAYLOAD_SIZE(ATTITUDE);
         send_attitude();
+        
+        send_engine_status1();
+        
+        send_engine_status2();
+        
+        send_engine_status3();
+       
+        send_engine_status4();
+       
+        send_engine_status5();
+        
+        send_engine_status6();
+       
+        send_engine_status7();
+        
+        send_engine_summary();
+        
         break;
 
     case MSG_ATTITUDE_QUATERNION:
@@ -6129,7 +6151,6 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
 #endif
         break;
     }
-
 
     case MSG_UAVIONIX_ADSB_OUT_STATUS:
 #if HAL_ADSB_ENABLED
