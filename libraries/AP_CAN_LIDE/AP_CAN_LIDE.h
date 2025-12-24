@@ -15,8 +15,10 @@
 #define LIDE_ONLINE_TIMEOUT_MS 500  // 掉线超时时间（毫秒）
 #define LIDE_STATUS_LOG_PERIOD_MS 100  // 状态日志记录周期
 
+
 // 发动机总体状态枚举
 enum LIDE_EngineStatus {
+    ENGINE_STATUS_RESERVED = 0,
     LIDE_STATUS_NORMAL = 1,
     LIDE_STATUS_ABNORMAL = 2,
     LIDE_STATUS_WARNING = 3

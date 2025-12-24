@@ -333,44 +333,102 @@ void AP_CAN_LIDE::process_status_frame(const AP_HAL::CANFrame &frame) {
             // 发动机系统状态
             if (frame.dlc >= 8) {
                 send_gcs_text(MAV_SEVERITY_INFO, "--- 发动机系统状态 ---");
-                
+
                 // 解析数据
-                _engine.engine_status = (frame.data[0] >> 6) & 0x03;
-                _engine.is_running = ((frame.data[0] >> 4) & 0x01) != 0;
-                _engine.maintenance_status = frame.data[0] & 0x07;
-                
-                // 状态字符串
-                const char* status_str = "未知";
-                switch (_engine.engine_status) {
-                    case LIDE_STATUS_NORMAL: status_str = "正常"; break;
-                    case LIDE_STATUS_ABNORMAL: status_str = "异常"; break;
-                    case LIDE_STATUS_WARNING: status_str = "警告"; break;
-                }
-                send_gcs_text(MAV_SEVERITY_INFO, "总体状态: %s", status_str);
-                send_gcs_text(MAV_SEVERITY_INFO, "运行状态: %s", _engine.is_running ? "运行中" : "停止");
-                
-                // 维保状态
-                const char* maint_str = "正常";
-                switch (_engine.maintenance_status) {
-                    case LIDE_MAINTENANCE_100H: maint_str = "100小时保养"; break;
-                    case LIDE_MAINTENANCE_200H: maint_str = "200小时保养"; break;
-                    case LIDE_MAINTENANCE_300H: maint_str = "300小时大修"; break;
-                }
-                send_gcs_text(MAV_SEVERITY_INFO, "维保状态: %s", maint_str);
-                
+                _engine.engine_status = frame.data[0];
+                _engine.is_running = ((frame.data[0] >> 2) & 0x01) != 0;
                 // 总运行时间
                 _engine.engine_runtime_hours = (frame.data[1] << 8 | frame.data[2]) * 0.1f;
-                send_gcs_text(MAV_SEVERITY_INFO, "总运行时间: %.1f小时", (double)_engine.engine_runtime_hours);
-                
                 // 当前运行时间
                 _engine.engine_runtime_minutes = frame.data[3] << 8 | frame.data[4];
-                send_gcs_text(MAV_SEVERITY_INFO, "本次运行时间: %d分钟", _engine.engine_runtime_minutes);
-                
                 // 油耗
                 _engine.fuel_consumption = (frame.data[5] << 8 | frame.data[6]) * 2;
                 _engine.fuel_rate_instant = frame.data[7] * 0.1f;
-                send_gcs_text(MAV_SEVERITY_INFO, "当前油耗: %d毫升", _engine.fuel_consumption);
-                send_gcs_text(MAV_SEVERITY_INFO, "瞬时油耗: %.1f升/小时", (double)_engine.fuel_rate_instant);
+                
+                // ========== 打印所有参数 ==========
+
+                // 1. 打印状态字节原始值和解析后的各个位
+                send_gcs_text(MAV_SEVERITY_INFO, "状态字节原始值: 0x%02X", _engine.engine_status);
+                send_gcs_text(MAV_SEVERITY_INFO, "状态字节二进制: %d%d%d%d%d%d%d%d",
+                    (_engine.engine_status >> 7) & 1,
+                    (_engine.engine_status >> 6) & 1,
+                    (_engine.engine_status >> 5) & 1,
+                    (_engine.engine_status >> 4) & 1,
+                    (_engine.engine_status >> 3) & 1,
+                    (_engine.engine_status >> 2) & 1,
+                    (_engine.engine_status >> 1) & 1,
+                    _engine.engine_status & 1);
+
+                // 2. 详细解析状态字节的各个位
+                // Bit 0-1: 发动机总体系统状态
+                uint8_t system_status = _engine.engine_status & 0x03;
+                const char* status_str[] = {"预留", "正常", "异常-尽快返航", "警告-停机故障"};
+                send_gcs_text(MAV_SEVERITY_INFO, "发动机总体状态: %s (值: %d)", 
+                    status_str[system_status], system_status);
+
+                // Bit 2: ECU上电状态
+                uint8_t running = (_engine.engine_status >> 2) & 0x01;
+                send_gcs_text(MAV_SEVERITY_INFO, "ECU运行状态: %s (值: %d)", 
+                    running ? "上电运行" : "熄火停止", running);
+
+                // Bit 3: 加热完成标志
+                uint8_t heating = (_engine.engine_status >> 3) & 0x01;
+                send_gcs_text(MAV_SEVERITY_INFO, "加热完成标志: %s (值: %d)", 
+                    heating ? "完成" : "未完成/预留", heating);
+
+                // Bit 4: 转速传感器选择
+                uint8_t sensor = (_engine.engine_status >> 4) & 0x01;
+                send_gcs_text(MAV_SEVERITY_INFO, "转速传感器: 传感器%d (值: %d)", 
+                    sensor ? 2 : 1, sensor);
+
+                // Bit 5-7: 维保提醒
+                uint8_t maintenance = (_engine.engine_status >> 5) & 0x07;
+                const char* maint_str[] = {"正常", "100h保养", "200h保养", "300h大修", "预留4", "预留5", "预留6", "预留7"};
+                send_gcs_text(MAV_SEVERITY_INFO, "维保状态: %s (值: %d)", 
+                    maint_str[maintenance], maintenance);
+
+                // 3. 打印其他数据
+                // 总运行时间
+                send_gcs_text(MAV_SEVERITY_INFO, "总运行时间: %.1f 小时 (原始数据: 0x%02X%02X)", 
+                    _engine.engine_runtime_hours, frame.data[1], frame.data[2]);
+                send_gcs_text(MAV_SEVERITY_INFO, "总运行时间原始值: %u (0.1小时单位)", 
+                    (frame.data[1] << 8) | frame.data[2]);
+
+                // 当前运行时间
+                send_gcs_text(MAV_SEVERITY_INFO, "本次运行时间: %d 分钟 (原始数据: 0x%02X%02X)", 
+                    _engine.engine_runtime_minutes, frame.data[3], frame.data[4]);
+                send_gcs_text(MAV_SEVERITY_INFO, "本次运行时间原始值: %u (分钟)", 
+                    (frame.data[3] << 8) | frame.data[4]);
+
+                // 当前油耗
+                send_gcs_text(MAV_SEVERITY_INFO, "当前油耗: %d 毫升 (原始数据: 0x%02X%02X)", 
+                    _engine.fuel_consumption, frame.data[5], frame.data[6]);
+                send_gcs_text(MAV_SEVERITY_INFO, "当前油耗原始值: %u (2毫升单位)", 
+                    (frame.data[5] << 8) | frame.data[6]);
+
+                // 瞬时油耗
+                send_gcs_text(MAV_SEVERITY_INFO, "瞬时油耗: %.1f 升/小时 (原始数据: 0x%02X)", 
+                    _engine.fuel_rate_instant, frame.data[7]);
+                send_gcs_text(MAV_SEVERITY_INFO, "瞬时油耗原始值: %u (0.1升/小时单位)", 
+                    frame.data[7]);
+
+                // 4. 打印完整数据帧
+                send_gcs_text(MAV_SEVERITY_INFO, "完整数据帧(8字节):");
+                char hex_buffer[32];
+                snprintf(hex_buffer, sizeof(hex_buffer), 
+                    "%02X %02X %02X %02X %02X %02X %02X %02X",
+                    frame.data[0], frame.data[1], frame.data[2], frame.data[3],
+                    frame.data[4], frame.data[5], frame.data[6], frame.data[7]);
+                send_gcs_text(MAV_SEVERITY_INFO, "HEX: %s", hex_buffer);
+
+                snprintf(hex_buffer, sizeof(hex_buffer), 
+                    "%3d %3d %3d %3d %3d %3d %3d %3d",
+                    frame.data[0], frame.data[1], frame.data[2], frame.data[3],
+                    frame.data[4], frame.data[5], frame.data[6], frame.data[7]);
+                send_gcs_text(MAV_SEVERITY_INFO, "DEC: %s", hex_buffer);
+               
+                
+             
             } else {
                 send_gcs_text(MAV_SEVERITY_WARNING, "状态1数据长度不足: %d < 8", frame.dlc);
             }
