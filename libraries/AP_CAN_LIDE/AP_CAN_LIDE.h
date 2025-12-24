@@ -5,8 +5,8 @@
 #include <AP_Param/AP_Param.h>
 
 // 砺德发动机CAN协议相关定义
-#define LIDE_MSG_RATE_HZ_DEFAULT 50
-#define LIDE_MSG_RATE_HZ_MIN 10
+#define LIDE_MSG_RATE_HZ_DEFAULT 1
+#define LIDE_MSG_RATE_HZ_MIN 1
 #define LIDE_MSG_RATE_HZ_MAX 100
 
 #define LIDE_THROTTLE_MAX 1000  // 油门最大值，对应100%
@@ -30,20 +30,20 @@ enum LIDE_MaintenanceStatus {
     LIDE_MAINTENANCE_300H = 3
 };
 
-// 发动机控制命令位定义
-typedef union {
-    struct {
-        uint8_t stop_cmd : 1;          // bit0: 停机指令
-        uint8_t heating_cmd : 1;       // bit1: 加热指令
-        uint8_t start_cmd : 1;         // bit2: 启动指令
-        uint8_t reserved1 : 1;         // bit3: 保留
-        uint8_t start_valid : 1;       // bit4: 启动指令有效位
-        uint8_t heating_valid : 1;     // bit5: 加热指令有效位
-        uint8_t altitude_valid : 1;    // bit6: 海拔有效位
-        uint8_t airspeed_valid : 1;    // bit7: 空速有效位
-    } bits;
-    uint8_t value;
-} LIDE_ControlCommand;
+// // 发动机控制命令位定义
+// typedef union {
+//     struct {
+//         uint8_t stop_cmd : 1;          // bit0: 停机指令
+//         uint8_t heating_cmd : 1;       // bit1: 加热指令
+//         uint8_t start_cmd : 1;         // bit2: 启动指令
+//         uint8_t reserved1 : 1;         // bit3: 保留
+//         uint8_t start_valid : 1;       // bit4: 启动指令有效位
+//         uint8_t heating_valid : 1;     // bit5: 加热指令有效位
+//         uint8_t altitude_valid : 1;    // bit6: 海拔有效位
+//         uint8_t airspeed_valid : 1;    // bit7: 空速有效位
+//     } bits;
+//     uint8_t value;
+// } LIDE_ControlCommand;
 
 // CAN ID定义（根据文档）
 #define LIDE_CAN_ID_CONTROL   0x600   // 飞控->发动机控制指令
@@ -64,7 +64,7 @@ typedef struct {
     
     // 控制相关
     uint16_t throttle_request;         // 油门请求值 (0-1000对应0-100%)
-    LIDE_ControlCommand control_cmd;   // 控制命令
+    uint8_t control_cmd;   // 控制命令
     uint16_t altitude;                 // 海拔高度 (米)
     uint8_t airspeed;                  // 空速 (m/s)
     
@@ -133,12 +133,14 @@ public:
     void update();
 
     // ============ 发动机控制接口 ============
+    void set_cmd_controll(uint16_t cmd);  // 0-1000对应0-100%
+    
     void set_throttle(uint16_t throttle);  // 0-1000对应0-100%
-    void set_start_cmd(bool start);
-    void set_stop_cmd(bool stop);
-    void set_heating_cmd(bool heating);
+    // void set_start_cmd(bool start);
+    // void set_stop_cmd(bool stop);
+    // void set_heating_cmd(bool heating);
     void set_altitude(uint16_t altitude);
-    void set_airspeed(uint8_t airspeed);
+    void set_airspeed(uint16_t airspeed);
     
     // ============ 状态查询接口 ============
     bool is_engine_online() const;

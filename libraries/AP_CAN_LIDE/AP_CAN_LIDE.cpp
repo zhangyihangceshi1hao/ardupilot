@@ -40,15 +40,15 @@ AP_CAN_LIDE::AP_CAN_LIDE() {
     _engine.engine_rpm = 0;
     _engine.engine_status = 0;
     _engine.last_update_ms = 0;
-    
+    _engine.control_cmd = 0;
     // 初始化控制命令
-    _engine.control_cmd.bits.stop_cmd = 0;
-    _engine.control_cmd.bits.heating_cmd = 0;
-    _engine.control_cmd.bits.start_cmd = 0;
-    _engine.control_cmd.bits.start_valid = 0;
-    _engine.control_cmd.bits.heating_valid = 0;
-    _engine.control_cmd.bits.altitude_valid = 0;
-    _engine.control_cmd.bits.airspeed_valid = 0;
+    // _engine.control_cmd.bits.stop_cmd = 0;
+    // _engine.control_cmd.bits.heating_cmd = 0;
+    // _engine.control_cmd.bits.start_cmd = 0;
+    // _engine.control_cmd.bits.start_valid = 0;
+    // _engine.control_cmd.bits.heating_valid = 0;
+    // _engine.control_cmd.bits.altitude_valid = 0;
+    // _engine.control_cmd.bits.airspeed_valid = 0;
     
     // 初始化故障字节
     for (int i = 0; i < 8; i++) {
@@ -259,6 +259,8 @@ void AP_CAN_LIDE::send_control_command() {
     
     // 油门请求 (0-1000对应0-100%)
     uint16_t throttle_raw = _engine.throttle_request;
+        send_gcs_text(MAV_SEVERITY_INFO, "当前油门请求: %u (0x%04X)", 
+                  throttle_raw, throttle_raw);
     txFrame.data[0] = (throttle_raw >> 8) & 0xFF;
     txFrame.data[1] = throttle_raw & 0xFF;
     
@@ -267,16 +269,27 @@ void AP_CAN_LIDE::send_control_command() {
     txFrame.data[3] = _engine.altitude & 0xFF;
     
     // 空速 (m/s)
-    uint8_t airspeed_raw = constrain_int16(_engine.airspeed * 4, 0, 252);
+    uint8_t airspeed_raw = _engine.airspeed;
     txFrame.data[4] = airspeed_raw;
     
     // 控制命令字节
-    txFrame.data[5] = _engine.control_cmd.value;
+    txFrame.data[5] = _engine.control_cmd;
     
     // 预留字节
     txFrame.data[6] = 0;
     txFrame.data[7] = 0;
-    
+    // 发送成功时打印完整数据帧信息（每行一个独立的调用）
+    send_gcs_text(MAV_SEVERITY_INFO, "CAN控制命令发送成功");
+    send_gcs_text(MAV_SEVERITY_INFO, "ID: 0x%08X", txFrame.id);
+    send_gcs_text(MAV_SEVERITY_INFO, "长度: %d字节", txFrame.dlc);
+    send_gcs_text(MAV_SEVERITY_INFO, "[0]: %02X ", txFrame.data[0]);
+    send_gcs_text(MAV_SEVERITY_INFO, "[1]: %02X ", txFrame.data[1]);
+    send_gcs_text(MAV_SEVERITY_INFO, "[2]: %02X ", txFrame.data[2]);
+    send_gcs_text(MAV_SEVERITY_INFO, "[3]: %02X ", txFrame.data[3]);
+    send_gcs_text(MAV_SEVERITY_INFO, "[4]: %02X ", txFrame.data[4]);
+    send_gcs_text(MAV_SEVERITY_INFO, "[5]: %02X ", txFrame.data[5]);
+    send_gcs_text(MAV_SEVERITY_INFO, "[6]: %02X ", txFrame.data[6]);
+    send_gcs_text(MAV_SEVERITY_INFO, "[7]: %02X ", txFrame.data[7]);
     // 发送帧
     bool send_success = false;
     for (int retry = 0; retry < 3; retry++) {
@@ -615,34 +628,34 @@ uint16_t AP_CAN_LIDE::convert_to_raw(float physical_value, float scale, float of
 }
 
 // ============ 控制接口 ============
-
+void AP_CAN_LIDE::set_cmd_controll(uint16_t cmd) {
+    _engine.control_cmd = cmd;
+}
 void AP_CAN_LIDE::set_throttle(uint16_t throttle) {
-    _engine.throttle_request = constrain_int16(throttle, LIDE_THROTTLE_MIN, LIDE_THROTTLE_MAX);
+    _engine.throttle_request = throttle;
 }
 
-void AP_CAN_LIDE::set_start_cmd(bool start) {
-    _engine.control_cmd.bits.start_cmd = start ? 1 : 0;
-    _engine.control_cmd.bits.start_valid = 1;
-}
+// void AP_CAN_LIDE::set_start_cmd(bool start) {
+//     _engine.control_cmd.bits.start_cmd = start ? 1 : 0;
+//     _engine.control_cmd.bits.start_valid = 1;
+// }
 
-void AP_CAN_LIDE::set_stop_cmd(bool stop) {
-    _engine.control_cmd.bits.stop_cmd = stop ? 1 : 0;
-}
+// void AP_CAN_LIDE::set_stop_cmd(bool stop) {
+//     _engine.control_cmd.bits.stop_cmd = stop ? 1 : 0;
+// }
 
-void AP_CAN_LIDE::set_heating_cmd(bool heating) {
-    _engine.control_cmd.bits.heating_cmd = heating ? 1 : 0;
-    _engine.control_cmd.bits.heating_valid = 1;
-    _engine.is_heating = heating;
-}
+// void AP_CAN_LIDE::set_heating_cmd(bool heating) {
+//     _engine.control_cmd.bits.heating_cmd = heating ? 1 : 0;
+//     _engine.control_cmd.bits.heating_valid = 1;
+//     _engine.is_heating = heating;
+// }
 
 void AP_CAN_LIDE::set_altitude(uint16_t altitude) {
     _engine.altitude = altitude;
-    _engine.control_cmd.bits.altitude_valid = 1;
 }
 
-void AP_CAN_LIDE::set_airspeed(uint8_t airspeed) {
+void AP_CAN_LIDE::set_airspeed(uint16_t airspeed) {
     _engine.airspeed = airspeed;
-    _engine.control_cmd.bits.airspeed_valid = 1;
 }
 
 // ============ 状态查询接口 ============

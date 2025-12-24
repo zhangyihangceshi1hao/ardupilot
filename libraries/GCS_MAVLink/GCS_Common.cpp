@@ -5544,6 +5544,7 @@ void GCS_MAVLINK::send_autopilot_state_for_gimbal_device() const
 // 处理从地面站收到的砺德CAN控制命令消息到飞控 (ID: 12921)
 void GCS_MAVLINK::handle_engine_control(const mavlink_message_t &msg) const
 {
+    send_text(MAV_SEVERITY_DEBUG, "收到砺德CAN控制命令:");
     mavlink_lide_can_control_t engine_control;
     mavlink_msg_lide_can_control_decode(&msg, &engine_control);
     
@@ -5554,33 +5555,28 @@ void GCS_MAVLINK::handle_engine_control(const mavlink_message_t &msg) const
         send_text(MAV_SEVERITY_WARNING, "未找到砺德CAN驱动");
         return;
     }
-    
+      // 打印收到的MAVLink消息原始值
+    send_text(MAV_SEVERITY_DEBUG, "收到砺德CAN控制命令:");
+    send_text(MAV_SEVERITY_DEBUG, "油门请求: %u", engine_control.throttle_request);
+    send_text(MAV_SEVERITY_DEBUG, "海拔: %u米", engine_control.altitude);
+    send_text(MAV_SEVERITY_DEBUG, "空速: %u m/s", engine_control.airspeed);
+    send_text(MAV_SEVERITY_DEBUG, "控制命令字节: 0x%02X", engine_control.control_command);
+    send_text(MAV_SEVERITY_DEBUG, "预留1: %u", engine_control.reserved1);
+    send_text(MAV_SEVERITY_DEBUG, "预留2: %u", engine_control.reserved2);
 
     
-    // 设置油门
+    
+    lide_driver->set_cmd_controll( engine_control.control_command);
     lide_driver->set_throttle( engine_control.throttle_request);
+    lide_driver->set_altitude( engine_control.altitude);
+    lide_driver->set_airspeed( engine_control.airspeed);
     
-    // 解析控制命令字节
-    uint8_t control_cmd = engine_control.control_command;
-    
-    // 停机命令
-    if (control_cmd & 0x01) {
-        lide_driver->set_stop_cmd(true);
-    }
-    
-    // 加热命令
-    if (control_cmd & 0x20) {  // 加热有效位
-        lide_driver->set_heating_cmd((control_cmd & 0x02) != 0);
-    }
-    
-    // 启动命令
-    if (control_cmd & 0x10) {  // 启动有效位
-        lide_driver->set_start_cmd((control_cmd & 0x04) != 0);
-    }
     
     // 发送确认
     send_text(MAV_SEVERITY_INFO, "控制命令已处理: 引擎" );
 }
+
+
 
 // 发送砺德CAN状态消息1 - 发动机系统状态消息到地面站 (ID: 12922)
 void GCS_MAVLINK::send_engine_status1() const

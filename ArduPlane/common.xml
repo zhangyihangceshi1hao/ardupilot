@@ -6235,7 +6235,7 @@
     <field type="uint16_t" name="altitude">
         当前海拔 (米)
     </field>
-    <field type="uint8_t" name="airspeed">
+    <field type="uint16_t" name="airspeed">
         空速 (m/s)
     </field>
     <field type="uint8_t" name="control_command">
