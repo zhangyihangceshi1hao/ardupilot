@@ -5606,7 +5606,26 @@ void GCS_MAVLINK::send_engine_status2() const
     if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
         return;
     }
-    
+    // 原始值的调试打印（如果有的话）
+    // uint16_t throttle_fb = lide_driver->get_throttle_feedback();
+    // uint16_t engine_rpm = lide_driver->get_engine_rpm();
+    // float temp1 = lide_driver->get_engine_temperature(0);
+    // float temp2 = lide_driver->get_engine_temperature(1);
+    // float temp3 = lide_driver->get_engine_temperature(2);
+    // float temp4 = lide_driver->get_engine_temperature(3);
+
+    // // 打印详细参数
+    // send_text(MAV_SEVERITY_INFO, "油门反馈: %u%% (get_throttle_feedback: %u)", 
+    //         throttle_fb, throttle_fb);
+    // send_text(MAV_SEVERITY_INFO, "发动机转速: %u RPM", engine_rpm);
+    // send_text(MAV_SEVERITY_INFO, "1缸温度: %.1f°C (get_engine_temperature(0): %.1f)", 
+    //         temp1, temp1);
+    // send_text(MAV_SEVERITY_INFO, "2缸温度: %.1f°C (get_engine_temperature(1): %.1f)", 
+    //         temp2, temp2);
+    // send_text(MAV_SEVERITY_INFO, "3缸温度: %.1f°C (get_engine_temperature(2): %.1f)", 
+    //         temp3, temp3);
+    // send_text(MAV_SEVERITY_INFO, "4缸温度: %.1f°C (get_engine_temperature(3): %.1f)", 
+    //         temp4, temp4);
     mavlink_msg_lide_can_status2_send(
         chan,
         lide_driver->get_throttle_feedback(),  // throttle_feedback
@@ -5646,16 +5665,16 @@ void GCS_MAVLINK::send_engine_status4() const
     if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
         return;
     }
-    
+ 
     mavlink_msg_lide_can_status4_send(
         chan,
         lide_driver->get_fuel_pressure_target(),  // fuel_pressure_target
         lide_driver->get_fuel_pressure_actual(),  // fuel_pressure_actual
-        0, // fuel_pump_rpm - 需要后续添加对应的API
+        lide_driver->get_fuel_pump_rpm(), // fuel_pump_rpm - 需要后续添加对应的API
         lide_driver->get_rail_pressure_target(),  // rail_pressure_target
         lide_driver->get_rail_pressure_actual(),  // rail_pressure_actual
         lide_driver->get_system_voltage(),        // system_voltage
-        0  // oil_consumption - 需要后续添加对应的API
+        lide_driver->get_oil_consumption()  // oil_consumption - 需要后续添加对应的API
     );
 }
 
@@ -5679,42 +5698,97 @@ void GCS_MAVLINK::send_engine_status5() const
     );
 }
 
-// 发送砺德CAN状态消息6 - 故障状态字节1-6消息到地面站 (ID: 12927)
+// 发送砺德CAN状态消息6 - 故障状态字节1-8消息到地面站 (ID: 12927)
 void GCS_MAVLINK::send_engine_status6() const
 {
+    send_text(MAV_SEVERITY_DEBUG, "准备发送故障状态消息 (STATUS6)");
+    
     AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
-    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+    if (lide_driver == nullptr) {
+        
         return;
     }
     
+    
+    // 获取所有故障字节并记录
+    uint8_t fault_bytes[8];
+    for (int i = 0; i < 8; i++) {
+        fault_bytes[i] = lide_driver->get_fault_byte(i);
+        send_text(MAV_SEVERITY_DEBUG, "故障字节%d: 0x%02X (%u)", 
+                     i + 1, fault_bytes[i], fault_bytes[i]);
+    }
+    
+    // 发送MAVLink消息
     mavlink_msg_lide_can_status6_send(
         chan,
-        lide_driver->get_fault_byte(0), // fault_byte1
-        lide_driver->get_fault_byte(1), // fault_byte2
-        lide_driver->get_fault_byte(2), // fault_byte3
-        lide_driver->get_fault_byte(3), // fault_byte4
-        lide_driver->get_fault_byte(4), // fault_byte5
-        lide_driver->get_fault_byte(5)  // fault_byte6
+        fault_bytes[0], // fault_byte1
+        fault_bytes[1], // fault_byte2
+        fault_bytes[2], // fault_byte3
+        fault_bytes[3], // fault_byte4
+        fault_bytes[4], // fault_byte5
+        fault_bytes[5], // fault_byte6
+        fault_bytes[6], // fault_byte7
+        fault_bytes[7]  // fault_byte8
     );
+    
+    send_text(MAV_SEVERITY_INFO, 
+                 "STATUS6消息已发送: "
+                 "0x%02X 0x%02X 0x%02X 0x%02X "
+                 "0x%02X 0x%02X 0x%02X 0x%02X",
+                 fault_bytes[0], fault_bytes[1], fault_bytes[2], fault_bytes[3],
+                 fault_bytes[4], fault_bytes[5], fault_bytes[6], fault_bytes[7]);
 }
 
-// 发送砺德CAN状态消息7 - 故障状态字节7-8和调整系数消息到地面站 (ID: 12928)
+// 发送砺德CAN状态消息7 - 调整系数消息到地面站 (ID: 12928)
 void GCS_MAVLINK::send_engine_status7() const
 {
+    send_text(MAV_SEVERITY_DEBUG, "[STATUS7] 准备发送调整系数");
+    
     AP_CAN_LIDE* lide_driver = AP_CAN_LIDE::get_global_instance();
-    if (lide_driver == nullptr || !lide_driver->is_engine_online()) {
+    if (lide_driver == nullptr) {
+        send_text(MAV_SEVERITY_WARNING, "[STATUS7] 发送失败: CAN驱动实例为空");
         return;
     }
     
+    if (!lide_driver->is_engine_online()) {
+        send_text(MAV_SEVERITY_INFO, "[STATUS7] 发送跳过: 发动机不在线");
+        return;
+    }
+    
+    send_text(MAV_SEVERITY_INFO, "=== 发送调整系数 ===");
+    
+    // 获取调整系数
+    uint8_t coeff1 = lide_driver->get_adjust_coefficient(0);
+    uint8_t coeff2 = lide_driver->get_adjust_coefficient(1);
+    uint8_t coeff3 = lide_driver->get_adjust_coefficient(2);
+    uint8_t coeff4 = lide_driver->get_adjust_coefficient(3);
+    
+    // 记录原始值和物理值
+    send_text(MAV_SEVERITY_INFO, "调整系数原始值:");
+    send_text(MAV_SEVERITY_INFO, "  系数1: 0x%02X (%d)", coeff1, coeff1);
+    send_text(MAV_SEVERITY_INFO, "  系数2: 0x%02X (%d)", coeff2, coeff2);
+    send_text(MAV_SEVERITY_INFO, "  系数3: 0x%02X (%d)", coeff3, coeff3);
+    send_text(MAV_SEVERITY_INFO, "  系数4: 0x%02X (%d)", coeff4, coeff4);
+    
+    send_text(MAV_SEVERITY_INFO, "调整系数物理值:");
+    send_text(MAV_SEVERITY_INFO, "  系数1: %.2f (0x%02X)", coeff1 / 100.0f, coeff1);
+    send_text(MAV_SEVERITY_INFO, "  系数2: %.2f (0x%02X)", coeff2 / 100.0f, coeff2);
+    send_text(MAV_SEVERITY_INFO, "  系数3: %.2f (0x%02X)", coeff3 / 100.0f, coeff3);
+    send_text(MAV_SEVERITY_INFO, "  系数4: %.2f (0x%02X)", coeff4 / 100.0f, coeff4);
+    
+    // 发送MAVLink消息
     mavlink_msg_lide_can_status7_send(
         chan,
-        lide_driver->get_fault_byte(6), // fault_byte7
-        lide_driver->get_fault_byte(7), // fault_byte8
-        lide_driver->get_adjust_coefficient(0), // adjust_coefficient1
-        lide_driver->get_adjust_coefficient(1), // adjust_coefficient2
-        lide_driver->get_adjust_coefficient(2), // adjust_coefficient3
-        lide_driver->get_adjust_coefficient(3)  // adjust_coefficient4
+        coeff1, // adjust_coefficient1
+        coeff2, // adjust_coefficient2
+        coeff3, // adjust_coefficient3
+        coeff4  // adjust_coefficient4
     );
+    
+    send_text(MAV_SEVERITY_INFO, 
+                 "[STATUS7] 消息已发送: 系数=%d,%d,%d,%d (物理值=%.2f,%.2f,%.2f,%.2f)",
+                 coeff1, coeff2, coeff3, coeff4,
+                 coeff1 / 100.0f, coeff2 / 100.0f, coeff3 / 100.0f, coeff4 / 100.0f);
 }
 
 // 发送砺德发动机汇总状态消息到地面站 (ID: 12929)

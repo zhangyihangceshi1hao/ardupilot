@@ -76,20 +76,29 @@ typedef struct {
     uint16_t engine_rpm;               // 发动机转速
     float engine_runtime_hours;        // 发动机总运行时间
     uint16_t engine_runtime_minutes;   // 当前运行时间
+    uint16_t throttle_feedback;
     
     // 温度信息
-    uint8_t cylinder_head_temp[4];     // 缸头温度 (1-4缸)
-    uint8_t exhaust_temp[4];           // 排气温度 (1-4缸)
-    uint8_t intake_temp;               // 进气温度
+    uint16_t cylinder_head_temp[4];     // 缸头温度 (1-4缸)
+    uint16_t exhaust_temp[4];           // 排气温度 (1-4缸)
+    uint16_t cooling_door_duty[4];      // 冷却门占空比 (1-4缸)
+    uint16_t intake_temp;               // 进气温度
+    // 环境压力
+    uint16_t env_pressure ;
+ 
     
+    // 预留字节
+    uint16_t reserved_byte;
     // 燃油系统
-    uint8_t fuel_pressure_target;      // 设定低压燃油压力
-    uint8_t fuel_pressure_actual;      // 实际低压燃油压力
-    uint8_t rail_pressure_target;      // 设定轨压
-    uint8_t rail_pressure_actual;      // 实际轨压
+    uint16_t fuel_pressure_target;      // 设定低压燃油压力
+    uint16_t fuel_pressure_actual;      // 实际低压燃油压力
+    uint16_t rail_pressure_target;      // 设定轨压
+    uint16_t rail_pressure_actual;      // 实际轨压
     uint16_t fuel_consumption;         // 当前油耗
-    uint8_t fuel_rate_instant;         // 瞬时油耗
-    
+    uint16_t fuel_rate_instant;         // 瞬时油耗
+    uint16_t fuel_pump_rpm;
+    uint16_t oil_consumption;
+
     // 电子节气门
     uint8_t throttle1_pos;             // 节气门1开度
     uint8_t throttle1_deviation;       // 节气门1偏差
@@ -102,7 +111,7 @@ typedef struct {
     
     // 故障状态
     uint8_t fault_bytes[8];            // 8个故障状态字节
-    
+    uint8_t default_coeffs[4];
     // 标志位
     bool is_online;                    // 是否在线
     bool is_running;                   // 是否在运行
@@ -159,15 +168,16 @@ public:
     uint16_t get_fuel_consumption_ml() const;
     float get_fuel_rate_instant() const;
     uint8_t get_maintenance_status() const;
-    uint8_t get_throttle_feedback() const;
+    uint16_t get_throttle_feedback() const;
     uint8_t get_fault_byte(uint8_t index) const;
     float get_exhaust_temperature(uint8_t cylinder) const;
     float get_fuel_pressure_target() const;
     float get_fuel_pressure_actual() const;
     float get_rail_pressure_target() const;
     float get_rail_pressure_actual() const;
+    float get_fuel_pump_rpm()const;
+    float get_oil_consumption()const;
     float get_system_voltage() const;
-    uint16_t get_oil_consumption() const;
     float get_intake_temperature() const;
     float get_oil_level() const;
     float get_throttle1_position() const;
@@ -179,7 +189,7 @@ public:
     float get_adjust_coefficient(uint8_t index) const;
     bool get_heating_status() const;
     uint16_t get_maintenance_time_remaining() const;
-    uint8_t get_engine_health_score() const;
+    uint16_t get_engine_health_score() const;
     uint8_t get_total_fault_count() const;
     bool get_specific_fault_status(uint8_t fault_byte, uint8_t fault_bit) const;
     
