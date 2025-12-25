@@ -6226,7 +6226,7 @@
       <field type="int16_t" name="temperature" units="cdegC">Temperature</field>
       <field type="uint16_t" name="humidity" units="c%">Humidity</field>
     </message>
-    <!-- ============ CAN控制命令 ============ -->
+     <!-- ============ CAN控制命令 ============ -->
 <message id="12921" name="LIDE_CAN_CONTROL">
     <description>砺德CAN控制命令 (飞控->发动机)</description>
     <field type="uint16_t" name="throttle_request">
@@ -6250,219 +6250,220 @@
 </message>
 
 <!-- ============ CAN状态反馈 ============ -->
-<message id="12922" name="LIDE_CAN_STATUS1">
-    <description>砺德CAN状态消息1 - 发动机系统状态</description>
-    <field type="uint8_t" name="engine_system_status">
-        发动机系统状态 (1:正常, 2:异常, 3:警告)
-    </field>
-    <field type="uint8_t" name="engine_running">
-        发动机运行状态 (0:停止, 1:运行)
-    </field>
-    <field type="uint8_t" name="maintenance_status">
-        维保状态 (0:正常, 1:100h保养, 2:200h保养, 3:300h大修)
-    </field>
-    <field type="float" name="engine_runtime_hours">
-        发动机总运行时间 (小时)
-    </field>
-    <field type="uint16_t" name="engine_runtime_minutes">
-        当前运行时间 (分钟)
-    </field>
-    <field type="uint16_t" name="fuel_consumption_ml">
-        当前油耗 (ml)
-    </field>
-    <field type="float" name="fuel_rate_instant">
-        瞬时油耗 (L/h)
-    </field>
-</message>
+  <message id="12922" name="LIDE_CAN_STATUS1">
+      <description>砺德CAN状态消息1 - 发动机系统状态</description>
+      <field type="uint8_t" name="engine_system_status">
+          发动机系统状态 (1:正常, 2:异常, 3:警告)
+      </field>
+      <field type="uint8_t" name="engine_running">
+          发动机运行状态 (0:停止, 1:运行)
+      </field>
+      <field type="uint8_t" name="maintenance_status">
+          维保状态 (0:正常, 1:100h保养, 2:200h保养, 3:300h大修)
+      </field>
+      <field type="float" name="engine_runtime_hours">
+          发动机总运行时间 (小时)
+      </field>
+      <field type="uint16_t" name="engine_runtime_minutes">
+          当前运行时间 (分钟)
+      </field>
+      <field type="uint16_t" name="fuel_consumption_ml">
+          当前油耗 (ml)
+      </field>
+      <field type="float" name="fuel_rate_instant">
+          瞬时油耗 (L/h)
+      </field>
+  </message>
 
-<message id="12923" name="LIDE_CAN_STATUS2">
-    <description>砺德CAN状态消息2 - 油门反馈和缸头温度</description>
-    <field type="uint8_t" name="throttle_feedback">
-        油门反馈百分比 (0-100%)
-    </field>
-    <field type="uint16_t" name="engine_rpm">
-        发动机转速 (RPM)
-    </field>
-    <field type="float" name="cylinder_temp_1">
-        1缸缸头温度 (°C)
-    </field>
-    <field type="float" name="cylinder_temp_2">
-        2缸缸头温度 (°C)
-    </field>
-    <field type="float" name="cylinder_temp_3">
-        3缸缸头温度 (°C)
-    </field>
-    <field type="float" name="cylinder_temp_4">
-        4缸缸头温度 (°C)
-    </field>
-</message>
+  <message id="12923" name="LIDE_CAN_STATUS2">
+      <description>砺德CAN状态消息2 - 油门反馈和缸头温度</description>
+      <field type="uint16_t" name="throttle_feedback">
+          油门反馈百分比 (0-100%)
+      </field>
+      <field type="uint16_t" name="engine_rpm">
+          发动机转速 (RPM)
+      </field>
+      <field type="float" name="cylinder_temp_1">
+          1缸缸头温度 (°C)
+      </field>
+      <field type="float" name="cylinder_temp_2">
+          2缸缸头温度 (°C)
+      </field>
+      <field type="float" name="cylinder_temp_3">
+          3缸缸头温度 (°C)
+      </field>
+      <field type="float" name="cylinder_temp_4">
+          4缸缸头温度 (°C)
+      </field>
+  </message>
 
-<message id="12924" name="LIDE_CAN_STATUS3">
-    <description>砺德CAN状态消息3 - 排气温度和冷风门</description>
-    <field type="float" name="exhaust_temp_1">
-        1缸排气温度 (°C)
-    </field>
-    <field type="float" name="exhaust_temp_2">
-        2缸排气温度 (°C)
-    </field>
-    <field type="float" name="exhaust_temp_3">
-        3缸排气温度 (°C)
-    </field>
-    <field type="float" name="exhaust_temp_4">
-        4缸排气温度 (°C)
-    </field>
-    <field type="float" name="cooling_door_duty_1">
-        冷风门1占空比 (%)
-    </field>
-    <field type="float" name="cooling_door_duty_2">
-        冷风门2占空比 (%)
-    </field>
-    <field type="float" name="cooling_door_duty_3">
-        冷风门3占空比 (%)
-    </field>
-    <field type="float" name="cooling_door_duty_4">
-        冷风门4占空比 (%)
-    </field>
-</message>
+  <message id="12924" name="LIDE_CAN_STATUS3">
+      <description>砺德CAN状态消息3 - 排气温度和冷风门</description>
+      <field type="float" name="exhaust_temp_1">
+          1缸排气温度 (°C)
+      </field>
+      <field type="float" name="exhaust_temp_2">
+          2缸排气温度 (°C)
+      </field>
+      <field type="float" name="exhaust_temp_3">
+          3缸排气温度 (°C)
+      </field>
+      <field type="float" name="exhaust_temp_4">
+          4缸排气温度 (°C)
+      </field>
+      <field type="float" name="cooling_door_duty_1">
+          冷风门1占空比 (%)
+      </field>
+      <field type="float" name="cooling_door_duty_2">
+          冷风门2占空比 (%)
+      </field>
+      <field type="float" name="cooling_door_duty_3">
+          冷风门3占空比 (%)
+      </field>
+      <field type="float" name="cooling_door_duty_4">
+          冷风门4占空比 (%)
+      </field>
+  </message>
 
-<message id="12925" name="LIDE_CAN_STATUS4">
-    <description>砺德CAN状态消息4 - 燃油系统和滑油消耗</description>
-    <field type="float" name="fuel_pressure_target">
-        设定低压燃油压力 (kPa)
-    </field>
-    <field type="float" name="fuel_pressure_actual">
-        实际低压燃油压力 (kPa)
-    </field>
-    <field type="uint16_t" name="fuel_pump_rpm">
-        低压油泵转速 (RPM)
-    </field>
-    <field type="float" name="rail_pressure_target">
-        设定轨压燃油压力 (Bar)
-    </field>
-    <field type="float" name="rail_pressure_actual">
-        实际轨压燃油压力 (Bar)
-    </field>
-    <field type="float" name="system_voltage">
-        系统电压 (V)
-    </field>
-    <field type="uint16_t" name="oil_consumption">
-        当前滑油消耗 (ml)
-    </field>
-</message>
+  <message id="12925" name="LIDE_CAN_STATUS4">
+      <description>砺德CAN状态消息4 - 燃油系统和滑油消耗</description>
+      <field type="float" name="fuel_pressure_target">
+          设定低压燃油压力 (kPa)
+      </field>
+      <field type="float" name="fuel_pressure_actual">
+          实际低压燃油压力 (kPa)
+      </field>
+      <field type="uint16_t" name="fuel_pump_rpm">
+          低压油泵转速 (RPM)
+      </field>
+      <field type="float" name="rail_pressure_target">
+          设定轨压燃油压力 (Bar)
+      </field>
+      <field type="float" name="rail_pressure_actual">
+          实际轨压燃油压力 (Bar)
+      </field>
+      <field type="float" name="system_voltage">
+          系统电压 (V)
+      </field>
+      <field type="uint16_t" name="oil_consumption">
+          当前滑油消耗 (ml)
+      </field>
+  </message>
 
-<message id="12926" name="LIDE_CAN_STATUS5">
-    <description>砺德CAN状态消息5 - 节气门和环境参数</description>
-    <field type="float" name="throttle1_deviation">
-        节气门1开度偏差 (%)
-    </field>
-    <field type="float" name="throttle1_position">
-        节气门1当前开度 (%)
-    </field>
-    <field type="float" name="throttle2_deviation">
-        节气门2开度偏差 (%)
-    </field>
-    <field type="float" name="throttle2_position">
-        节气门2当前开度 (%)
-    </field>
-    <field type="float" name="intake_temperature">
-        进气温度 (°C)
-    </field>
-    <field type="float" name="environment_pressure">
-        环境压力 (kPa)
-    </field>
-    <field type="float" name="oil_level">
-        油位 (%)
-    </field>
-</message>
+  <message id="12926" name="LIDE_CAN_STATUS5">
+      <description>砺德CAN状态消息5 - 节气门和环境参数</description>
+      <field type="float" name="throttle1_deviation">
+          节气门1开度偏差 (%)
+      </field>
+      <field type="float" name="throttle1_position">
+          节气门1当前开度 (%)
+      </field>
+      <field type="float" name="throttle2_deviation">
+          节气门2开度偏差 (%)
+      </field>
+      <field type="float" name="throttle2_position">
+          节气门2当前开度 (%)
+      </field>
+      <field type="float" name="intake_temperature">
+          进气温度 (°C)
+      </field>
+      <field type="float" name="environment_pressure">
+          环境压力 (kPa)
+      </field>
+      <field type="float" name="oil_level">
+          油位 (%)
+      </field>
+  </message>
 
-<message id="12927" name="LIDE_CAN_STATUS6">
-    <description>砺德CAN状态消息6 - 故障状态字节1-6</description>
-    <field type="uint8_t" name="fault_byte1">
-        故障状态字节1
-    </field>
-    <field type="uint8_t" name="fault_byte2">
-        故障状态字节2
-    </field>
-    <field type="uint8_t" name="fault_byte3">
-        故障状态字节3
-    </field>
-    <field type="uint8_t" name="fault_byte4">
-        故障状态字节4
-    </field>
-    <field type="uint8_t" name="fault_byte5">
-        故障状态字节5
-    </field>
-    <field type="uint8_t" name="fault_byte6">
-        故障状态字节6
-    </field>
-</message>
+  <message id="12927" name="LIDE_CAN_STATUS6">
+      <description>砺德CAN状态消息6 - 故障状态字节1-6</description>
+      <field type="uint8_t" name="fault_byte1">
+          故障状态字节1
+      </field>
+      <field type="uint8_t" name="fault_byte2">
+          故障状态字节2
+      </field>
+      <field type="uint8_t" name="fault_byte3">
+          故障状态字节3
+      </field>
+      <field type="uint8_t" name="fault_byte4">
+          故障状态字节4
+      </field>
+      <field type="uint8_t" name="fault_byte5">
+          故障状态字节5
+      </field>
+      <field type="uint8_t" name="fault_byte6">
+          故障状态字节6
+      </field>
+      <field type="uint8_t" name="fault_byte7">
+          故障状态字节7
+      </field>
+      <field type="uint8_t" name="fault_byte8">
+          故障状态字节8
+      </field>
+  </message>
 
-<message id="12928" name="LIDE_CAN_STATUS7">
-    <description>砺德CAN状态消息7 - 故障状态字节7-8和调整系数</description>
-    <field type="uint8_t" name="fault_byte7">
-        故障状态字节7
-    </field>
-    <field type="uint8_t" name="fault_byte8">
-        故障状态字节8
-    </field>
-    <field type="float" name="adjust_coefficient1">
-        调整系数1
-    </field>
-    <field type="float" name="adjust_coefficient2">
-        调整系数2
-    </field>
-    <field type="float" name="adjust_coefficient3">
-        调整系数3
-    </field>
-    <field type="float" name="adjust_coefficient4">
-        调整系数4
-    </field>
-</message>
+  <message id="12928" name="LIDE_CAN_STATUS7">
+      <description>砺德CAN状态消息7 - 故障状态字节7-8和调整系数</description>
+      
+      <field type="float" name="adjust_coefficient1">
+          调整系数1
+      </field>
+      <field type="float" name="adjust_coefficient2">
+          调整系数2
+      </field>
+      <field type="float" name="adjust_coefficient3">
+          调整系数3
+      </field>
+      <field type="float" name="adjust_coefficient4">
+          调整系数4
+      </field>
+  </message>
 
-<message id="12929" name="LIDE_ENGINE_SUMMARY">
-    <description>砺德发动机汇总状态</description>
-    <field type="uint8_t" name="engine_status">
-        发动机总体状态 (1:正常, 2:异常, 3:警告)
-    </field>
-    <field type="uint16_t" name="engine_rpm">
-        发动机转速 (RPM)
-    </field>
-    <field type="uint8_t" name="throttle_feedback">
-        油门反馈 (0-100%)
-    </field>
-    <field type="float" name="cylinder_temp_max">
-        最高缸头温度 (°C)
-    </field>
-    <field type="float" name="exhaust_temp_max">
-        最高排气温度 (°C)
-    </field>
-    <field type="float" name="fuel_pressure_target">
-        设定燃油压力 (kPa)
-    </field>
-    <field type="float" name="rail_pressure_target">
-        设定轨压 (Bar)
-    </field>
-    <field type="float" name="system_voltage">
-        系统电压 (V)
-    </field>
-    <field type="float" name="engine_runtime_hours">
-        总运行时间 (小时)
-    </field>
-    <field type="uint16_t" name="engine_runtime_minutes">
-        当前运行时间 (分钟)
-    </field>
-    <field type="uint8_t" name="fault_count">
-        故障数量
-    </field>
-    <field type="uint8_t" name="maintenance_status">
-        维保状态
-    </field>
-    <field type="uint8_t" name="engine_health_score">
-        健康度评分 (0-100)
-    </field>
-    <field type="uint16_t" name="maintenance_time_remaining">
-        剩余维护时间 (分钟)
-    </field>
-</message>
+  <message id="12929" name="LIDE_ENGINE_SUMMARY">
+      <description>砺德发动机汇总状态</description>
+      <field type="uint8_t" name="engine_status">
+          发动机总体状态 (1:正常, 2:异常, 3:警告)
+      </field>
+      <field type="uint16_t" name="engine_rpm">
+          发动机转速 (RPM)
+      </field>
+      <field type="uint8_t" name="throttle_feedback">
+          油门反馈 (0-100%)
+      </field>
+      <field type="float" name="cylinder_temp_max">
+          最高缸头温度 (°C)
+      </field>
+      <field type="float" name="exhaust_temp_max">
+          最高排气温度 (°C)
+      </field>
+      <field type="float" name="fuel_pressure_target">
+          设定燃油压力 (kPa)
+      </field>
+      <field type="float" name="rail_pressure_target">
+          设定轨压 (Bar)
+      </field>
+      <field type="float" name="system_voltage">
+          系统电压 (V)
+      </field>
+      <field type="float" name="engine_runtime_hours">
+          总运行时间 (小时)
+      </field>
+      <field type="uint16_t" name="engine_runtime_minutes">
+          当前运行时间 (分钟)
+      </field>
+      <field type="uint8_t" name="fault_count">
+          故障数量
+      </field>
+      <field type="uint8_t" name="maintenance_status">
+          维保状态
+      </field>
+      <field type="uint16_t" name="engine_health_score">
+          健康度评分 (0-100)
+      </field>
+      <field type="uint16_t" name="maintenance_time_remaining">
+          剩余维护时间 (分钟)
+      </field>
+  </message>
   </messages>
 </mavlink>
