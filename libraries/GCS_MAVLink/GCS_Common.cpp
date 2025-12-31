@@ -5853,7 +5853,8 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
     bool ret = true;
 
     switch(id) {
-
+    case LIDE_CAN_STATUS1:
+    
     case MSG_ATTITUDE:
         CHECK_PAYLOAD_SIZE(ATTITUDE);
         send_attitude();

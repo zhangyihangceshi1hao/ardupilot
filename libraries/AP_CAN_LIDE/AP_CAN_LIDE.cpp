@@ -316,17 +316,17 @@ void AP_CAN_LIDE::process_status_frame(const AP_HAL::CANFrame &frame) {
     _engine.last_update_ms = now_ms;
     
     // 打印接收到的CAN帧基本信息
-    send_gcs_text(MAV_SEVERITY_INFO, "=== 收到CAN帧 ===");
-    send_gcs_text(MAV_SEVERITY_INFO, "CAN ID: 0x%03X, 长度: %d字节", frame.id, frame.dlc);
+    // send_gcs_text(MAV_SEVERITY_INFO, "=== 收到CAN帧 ===");
+    // send_gcs_text(MAV_SEVERITY_INFO, "CAN ID: 0x%03X, 长度: %d字节", frame.id, frame.dlc);
     
-    // 打印原始数据字节
-    if (frame.dlc > 0) {
-        send_gcs_text(MAV_SEVERITY_INFO, "原始数据:");
-        for (uint8_t i = 0; i < frame.dlc; i++) {
-            send_gcs_text(MAV_SEVERITY_INFO, "  [%d]: 0x%02X (%u)", i, frame.data[i], frame.data[i]);
-        }
-    }
-    
+    // // 打印原始数据字节
+    // if (frame.dlc > 0) {
+    //     send_gcs_text(MAV_SEVERITY_INFO, "原始数据:");
+    //     for (uint8_t i = 0; i < frame.dlc; i++) {
+    //         send_gcs_text(MAV_SEVERITY_INFO, "  [%d]: 0x%02X (%u)", i, frame.data[i], frame.data[i]);
+    //     }
+    // }
+    send_gcs_text(MAV_SEVERITY_INFO, "当前ID: 0x%08X", frame.id);
     // 根据CAN ID分发处理
     switch (frame.id) {
         case LIDE_CAN_ID_STATUS1:
@@ -622,7 +622,7 @@ void AP_CAN_LIDE::process_status_frame(const AP_HAL::CANFrame &frame) {
             break;
     }
     
-    send_gcs_text(MAV_SEVERITY_INFO, "=== CAN帧处理完成 ===\n");
+    // send_gcs_text(MAV_SEVERITY_INFO, "=== CAN帧处理完成 ===\n");
 }
 
 // 写入CAN帧
