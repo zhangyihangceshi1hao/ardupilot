@@ -21,6 +21,7 @@
 
 #include <AP_UAVCAN/AP_UAVCAN.h>
 #include <AP_PiccoloCAN/AP_PiccoloCAN.h>
+#include <FD_CAN/FD_CAN.h>
 #include "AP_CANTester.h"
 #include <AP_KDECAN/AP_KDECAN.h>
 
@@ -56,7 +57,8 @@ const AP_Param::GroupInfo AP_CANManager::CANDriver_Params::var_info[] = {
     // @Group: PC_
     // @Path: ../AP_PiccoloCAN/AP_PiccoloCAN.cpp
     AP_SUBGROUPPTR(_piccolocan, "PC_", 5, AP_CANManager::CANDriver_Params, AP_PiccoloCAN),
-#endif
+#endif    
+    AP_SUBGROUPPTR(_fdcan, "FC_", 7, AP_CANManager::CANDriver_Params, FD_CAN),
 
     AP_GROUPEND
 };

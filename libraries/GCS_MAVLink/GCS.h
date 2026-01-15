@@ -386,6 +386,7 @@ public:
     void send_high_latency2() const;
 #endif // HAL_HIGH_LATENCY2_ENABLED
     void send_uavionix_adsb_out_status() const;
+    void send_txhy_fan206_status() const;
     void send_autopilot_state_for_gimbal_device() const;
 
     // lock a channel, preventing use by MAVLink
@@ -658,6 +659,8 @@ protected:
     MAV_RESULT handle_fixed_mag_cal_yaw(const mavlink_command_long_t &packet);
 
     void handle_manual_control(const mavlink_message_t &msg);
+
+    void handle_txhy_fan206_set(const mavlink_message_t &msg) const;
 
     // default empty handling of LANDING_TARGET
     virtual void handle_landing_target(const mavlink_landing_target_t &packet, uint32_t timestamp_ms) { }

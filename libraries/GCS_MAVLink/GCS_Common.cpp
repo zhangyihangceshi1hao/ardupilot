@@ -84,6 +84,7 @@
   #include <AP_PiccoloCAN/AP_PiccoloCAN.h>
   #include <AP_UAVCAN/AP_UAVCAN.h>
 #endif
+#include <FD_CAN/FD_CAN.h>
 
 #if !defined(HAL_BUILD_AP_PERIPH) || defined(HAL_PERIPH_ENABLE_BATTERY)
 #include <AP_BattMonitor/AP_BattMonitor.h>
@@ -993,6 +994,7 @@ ap_message GCS_MAVLINK::mavlink_id_to_ap_message_id(const uint32_t mavlink_id) c
 #if HAL_ADSB_ENABLED
         { MAVLINK_MSG_ID_UAVIONIX_ADSB_OUT_STATUS, MSG_UAVIONIX_ADSB_OUT_STATUS},
 #endif
+        { MAVLINK_MSG_ID_TXHY_FAN206_STATUS, MSG_TXHY_FAN206_STATUS},
             };
 
     for (uint8_t i=0; i<ARRAY_SIZE(map); i++) {
@@ -3758,6 +3760,32 @@ void GCS_MAVLINK::handle_heartbeat(const mavlink_message_t &msg) const
     }
 }
 
+void GCS_MAVLINK::handle_txhy_fan206_set(const mavlink_message_t &msg) const
+{
+
+    mavlink_txhy_fan206_set_t packet;
+    mavlink_msg_txhy_fan206_set_decode(&msg, &packet);
+    for (uint8_t i = 0; i < AP::can().get_num_drivers(); i++) {
+        if (AP::can().get_driver_type(i) == AP_CANManager::Driver_Type_FDCAN) {
+            FD_CAN *fd_can = FD_CAN::get_can_fd(i);
+            if (fd_can == nullptr) {
+                // send_text(MAV_SEVERITY_INFO, "%d| fd_can == nullptr", i);
+                continue;
+            }
+            if (fd_can->_fan_ptr == nullptr) {
+                if (fd_can->_print.get()) {
+                    send_text(MAV_SEVERITY_INFO, "%d| fd_can->_fan_ptr", i);
+                    continue;
+                }
+            }
+            fd_can->_fan_ptr->do_start(packet.start);
+            break;
+        } else {
+            // send_text(MAV_SEVERITY_INFO, "%d| no type", i);
+        } 
+    }
+}
+
 /*
   handle messages which don't require vehicle specific data
  */
@@ -4033,8 +4061,11 @@ void GCS_MAVLINK::handle_common_message(const mavlink_message_t &msg)
         AP_CheckFirmware::handle_msg(chan, msg);
         break;
 #endif
-    }
 
+    case MAVLINK_MSG_ID_TXHY_FAN206_SET:
+        handle_txhy_fan206_set(msg);
+        break;
+    }
 }
 
 void GCS_MAVLINK::handle_common_mission_message(const mavlink_message_t &msg)
@@ -5488,6 +5519,40 @@ void GCS_MAVLINK::send_uavionix_adsb_out_status() const
 }
 #endif
 
+void GCS_MAVLINK::send_txhy_fan206_status() const
+{
+    for (uint8_t i = 0; i < AP::can().get_num_drivers(); i++) {
+        if (AP::can().get_driver_type(i) == AP_CANManager::Driver_Type_FDCAN) {
+            FD_CAN *fd_can = FD_CAN::get_can_fd(i);
+            if (fd_can == nullptr) {
+                // send_text(MAV_SEVERITY_INFO, "%d| fd_can == nullptr", i);
+                continue;
+            }
+            if (fd_can->_fan_ptr == nullptr) {
+                if (fd_can->_print.get()) {
+                    send_text(MAV_SEVERITY_INFO, "%d| fd_can->_fan_ptr", i);
+                    continue;
+                }
+            }
+            mavlink_msg_txhy_fan206_status_send(
+                chan,
+                fd_can->_fan_ptr->fan_info.status_code,
+                fd_can->_fan_ptr->fan_info.rpm,
+                fd_can->_fan_ptr->fan_info.sampletime);
+
+            if (fd_can->_print.get()) {
+                send_text(MAV_SEVERITY_INFO, "%d:%d %d %d", i, 
+                    fd_can->_fan_ptr->fan_info.status_code,
+                    fd_can->_fan_ptr->fan_info.rpm,
+                    fd_can->_fan_ptr->fan_info.sampletime);
+            }
+            break;
+        } else {
+            // send_text(MAV_SEVERITY_INFO, "%d| no type", i);
+        } 
+    }
+}
+
 void GCS_MAVLINK::send_autopilot_state_for_gimbal_device() const
 {
     // get attitude
@@ -5915,6 +5980,11 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
         CHECK_PAYLOAD_SIZE(UAVIONIX_ADSB_OUT_STATUS);
         send_uavionix_adsb_out_status();
 #endif
+        break;
+
+    case MSG_TXHY_FAN206_STATUS:
+        CHECK_PAYLOAD_SIZE(TXHY_FAN206_STATUS);
+        send_txhy_fan206_status();
         break;
 
     default:
