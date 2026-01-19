@@ -127,12 +127,202 @@ void FD_CAN::init(uint8_t driver_index, bool enable_filters) {
     gcs().send_text(MAV_SEVERITY_INFO, "CAN_FD: init done\n\r");
 }
 
+// =====================================================
+// 使用TUNNEL消息发送电机数据
+// payload_type = 13000 (MOTOR_RPM)
+// 载荷结构: time_boot_ms(4) + motor_rpm[16](32) + motor_temp[16](16) = 52字节
+// =====================================================
+void FD_CAN::send_motor_rpm_via_tunnel(mavlink_channel_t chan)
+{
+    // TUNNEL消息payload固定128字节，必须使用完整大小的数组
+    uint8_t payload[128];
+    memset(payload, 0, sizeof(payload));  // 先清零
+    uint8_t idx = 0;
+    
+    // 1. 时间戳 (4字节, 小端序)
+    uint32_t time_ms = AP_HAL::millis();
+    payload[idx++] = (uint8_t)(time_ms & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 8) & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 16) & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 24) & 0xFF);
+    
+    // 2. 16个电机RPM (每个2字节, 小端序)
+    for (int i = 0; i < 16; i++) {
+        uint16_t rpm = AP::fd_data().motor_rpm_packet.motor_rpm[i];
+        payload[idx++] = (uint8_t)(rpm & 0xFF);
+        payload[idx++] = (uint8_t)((rpm >> 8) & 0xFF);
+    }
+    
+    // 3. 16个电机温度 (每个1字节, 有符号)
+    for (int i = 0; i < 16; i++) {
+        payload[idx++] = (uint8_t)AP::fd_data().motor_rpm_packet.motor_temp[i];
+    }
+    
+    // 发送TUNNEL消息, payload_length指定实际有效数据长度
+    mavlink_msg_tunnel_send(
+        chan,
+        0,                              // target_system (0 = 广播)
+        0,                              // target_component (0 = 广播)
+        TUNNEL_PAYLOAD_TYPE_MOTOR_RPM,  // payload_type = 13000
+        52,                             // payload_length (实际数据长度)
+        payload
+    );
+}
+
+// =====================================================
+// 使用TUNNEL消息发送电池错误信息
+// payload_type = 13001 (BATTERY_ERROR)
+// 载荷结构: time_boot_ms(4) + error_code(2) + battery_id(1) = 7字节
+// =====================================================
+void FD_CAN::send_battery_error_via_tunnel(mavlink_channel_t chan)
+{
+    // TUNNEL消息payload固定128字节
+    uint8_t payload[128];
+    memset(payload, 0, sizeof(payload));
+    uint8_t idx = 0;
+    
+    // 1. 时间戳 (4字节)
+    uint32_t time_ms = AP_HAL::millis();
+    payload[idx++] = (uint8_t)(time_ms & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 8) & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 16) & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 24) & 0xFF);
+    
+    // 2. 错误码 (2字节)
+    uint16_t error_code = AP::fd_data().battery_error_packet.error_code;
+    payload[idx++] = (uint8_t)(error_code & 0xFF);
+    payload[idx++] = (uint8_t)((error_code >> 8) & 0xFF);
+    
+    // 3. 电池ID (1字节)
+    payload[idx++] = AP::fd_data().battery_error_packet.battery_id;
+    
+    // 发送TUNNEL消息
+    mavlink_msg_tunnel_send(
+        chan,
+        0,
+        0,
+        TUNNEL_PAYLOAD_TYPE_BATTERY_ERROR,  // payload_type = 13001
+        7,                                   // payload_length (实际数据长度)
+        payload
+    );
+}
+
+// =====================================================
+// 使用TUNNEL消息发送电池信息
+// payload_type = 13002 (BATTERY_INFO)
+// 载荷结构: time_boot_ms(4) + voltage(2) + current(2) + battery_remaining(1) = 9字节
+// =====================================================
+void FD_CAN::send_battery_info_via_tunnel(mavlink_channel_t chan)
+{
+    // TUNNEL消息payload固定128字节
+    uint8_t payload[128];
+    memset(payload, 0, sizeof(payload));
+    uint8_t idx = 0;
+    
+    // 1. 时间戳 (4字节)
+    uint32_t time_ms = AP_HAL::millis();
+    payload[idx++] = (uint8_t)(time_ms & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 8) & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 16) & 0xFF);
+    payload[idx++] = (uint8_t)((time_ms >> 24) & 0xFF);
+    
+    // 2. 电压 (2字节, mV)
+    uint16_t voltage = AP::fd_data().battery_info_packet.voltage;
+    payload[idx++] = (uint8_t)(voltage & 0xFF);
+    payload[idx++] = (uint8_t)((voltage >> 8) & 0xFF);
+    
+    // 3. 电流 (2字节, mA, 有符号)
+    int16_t current = AP::fd_data().battery_info_packet.current;
+    payload[idx++] = (uint8_t)(current & 0xFF);
+    payload[idx++] = (uint8_t)((current >> 8) & 0xFF);
+    
+    // 4. 剩余电量 (1字节, %)
+    payload[idx++] = AP::fd_data().battery_info_packet.battery_remaining;
+    
+    // 发送TUNNEL消息
+    mavlink_msg_tunnel_send(
+        chan,
+        0,
+        0,
+        TUNNEL_PAYLOAD_TYPE_BATTERY_INFO,  // payload_type = 13002
+        9,                                  // payload_length (实际数据长度)
+        payload
+    );
+}
+
+// =====================================================
+// 处理接收到的TUNNEL消息 (新增)
+// 用于接收地面站发来的POWER_CONTROL命令
+// =====================================================
+void FD_CAN::handle_mavlink_tunnel(const mavlink_tunnel_t& tunnel)
+{
+    // 只处理 POWER_CONTROL 消息 (payload_type = 13003)
+    if (tunnel.payload_type != TUNNEL_PAYLOAD_TYPE_POWER_CONTROL) {
+        return;
+    }
+    
+    // 检查载荷长度
+    // POWER_CONTROL载荷结构 (8字节):
+    // [0-3] time_boot_ms: uint32 (小端序)
+    // [4]   target_system: uint8
+    // [5]   target_component: uint8
+    // [6]   command: uint8 (0=无操作, 1=上电, 2=断电)
+    // [7]   channel: uint8 (0-15, 255=所有通道)
+    if (tunnel.payload_length < 8) {
+        gcs().send_text(MAV_SEVERITY_WARNING, "POWER_CTRL: invalid len=%d", tunnel.payload_length);
+        return;
+    }
+    
+    // 解析命令
+    uint8_t command = tunnel.payload[6];
+    uint8_t channel = tunnel.payload[7];
+    
+    gcs().send_text(MAV_SEVERITY_INFO, "POWER_CTRL RX: cmd=%d ch=%d", command, channel);
+    
+    // 获取FD_CAN实例
+    FD_CAN* fd_can = FD_CAN::get_can_fd(0);
+    if (fd_can == nullptr) {
+        gcs().send_text(MAV_SEVERITY_ERROR, "POWER_CTRL: FD_CAN not found");
+        return;
+    }
+    
+    // 检查BMS指针
+    if (fd_can->_bms_ptr == nullptr) {
+        gcs().send_text(MAV_SEVERITY_ERROR, "POWER_CTRL: BMS not init");
+        return;
+    }
+    
+    // 检查BMS是否启用
+    if (fd_can->_enable_bms.get() == 0) {
+        gcs().send_text(MAV_SEVERITY_WARNING, "POWER_CTRL: BMS disabled");
+        return;
+    }
+    
+    // 执行命令
+    switch (command) {
+        case 1:  // 上电/闭合
+            fd_can->_bms_ptr->set_switch(1);
+            gcs().send_text(MAV_SEVERITY_INFO, "BMS: Power ON sent");
+            break;
+            
+        case 2:  // 断电/断开
+            fd_can->_bms_ptr->set_switch(0);
+            gcs().send_text(MAV_SEVERITY_INFO, "BMS: Power OFF sent");
+            break;
+            
+        case 0:  // 无操作
+        default:
+            gcs().send_text(MAV_SEVERITY_WARNING, "POWER_CTRL: no action cmd=%d", command);
+            break;
+    }
+}
+
 // loop to send output to CAN devices in background thread
 void FD_CAN::loop() {
     AP_HAL::CANFrame txFrame{};
     AP_HAL::CANFrame rxFrame{};
 
-    // 新增：用于定时发送MAVLink消息
+    // 用于定时发送MAVLink消息
     uint32_t last_mav_send_ms = 0;
 
     while (true) {
@@ -159,7 +349,7 @@ void FD_CAN::loop() {
                 }
             }
 
-            // 新增：处理BMS数据
+            // 处理BMS数据
             if (_bms_ptr != nullptr && _enable_bms.get() != 0) {
                 _bms_ptr->handle_info(rxFrame, _print.get());
             }
@@ -181,119 +371,58 @@ void FD_CAN::loop() {
         }
 
         // =====================================================
-        // 新增：周期性发送自定义MAVLink消息 (MOTOR_RPM, BATTERY_ERROR, BATTERY_INFO)
+        // 周期性发送数据 (使用TUNNEL消息)
         // 发送频率：2Hz (每500ms发送一次)
         // =====================================================
         if (AP_HAL::millis() - last_mav_send_ms > 500) {
             last_mav_send_ms = AP_HAL::millis();
             
-            // ==================== 调试输出区域 ====================
+            // ==================== 调试输出 ====================
+
+            // gcs().send_text(MAV_SEVERITY_INFO, "RPM 1-4: %d %d %d %d", 
+            //     AP::fd_data().motor_rpm_packet.motor_rpm[0],
+            //     AP::fd_data().motor_rpm_packet.motor_rpm[1],
+            //     AP::fd_data().motor_rpm_packet.motor_rpm[2],
+            //     AP::fd_data().motor_rpm_packet.motor_rpm[3]);
             
-            // ---------- 电机1-4转速调试(全部) ----------
-            gcs().send_text(MAV_SEVERITY_INFO, "RPM 1-4: %d %d %d %d", 
-                AP::fd_data().motor_rpm_packet.motor_rpm[0],
-                AP::fd_data().motor_rpm_packet.motor_rpm[1],
-                AP::fd_data().motor_rpm_packet.motor_rpm[2],
-                AP::fd_data().motor_rpm_packet.motor_rpm[3]);
+            // gcs().send_text(MAV_SEVERITY_INFO, "TEMP 1-4: %d %d %d %d", 
+            //     AP::fd_data().motor_rpm_packet.motor_temp[0],
+            //     AP::fd_data().motor_rpm_packet.motor_temp[1],
+            //     AP::fd_data().motor_rpm_packet.motor_temp[2],
+            //     AP::fd_data().motor_rpm_packet.motor_temp[3]);
             
-            // ---------- 电机5-8转速调试 ----------
-            // gcs().send_text(MAV_SEVERITY_INFO, "RPM 5-8: %d %d %d %d", 
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[4],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[5],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[6],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[7]);
+            // gcs().send_text(MAV_SEVERITY_INFO, "BMS: V=%dmV I=%dmA SOC=%d%%", 
+            //     AP::fd_data().battery_info_packet.voltage,
+            //     AP::fd_data().battery_info_packet.current,
+            //     AP::fd_data().battery_info_packet.battery_remaining);
             
-            // ---------- 电机9-12转速调试 ----------
-            // gcs().send_text(MAV_SEVERITY_INFO, "RPM 9-12: %d %d %d %d", 
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[8],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[9],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[10],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[11]);
+            // gcs().send_text(MAV_SEVERITY_INFO, "BMS ERR: code=0x%04X id=%d", 
+            //     AP::fd_data().battery_error_packet.error_code,
+            //     AP::fd_data().battery_error_packet.battery_id);
+
             
-            // ---------- 电机13-16转速调试 ----------
-            // gcs().send_text(MAV_SEVERITY_INFO, "RPM 13-16: %d %d %d %d", 
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[12],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[13],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[14],
-            //     AP::fd_data().motor_rpm_packet.motor_rpm[15]);
-            
-            // ---------- 电机1-4温度调试 ----------
-            gcs().send_text(MAV_SEVERITY_INFO, "TEMP 1-4: %d %d %d %d", 
-                AP::fd_data().motor_rpm_packet.motor_temp[0],
-                AP::fd_data().motor_rpm_packet.motor_temp[1],
-                AP::fd_data().motor_rpm_packet.motor_temp[2],
-                AP::fd_data().motor_rpm_packet.motor_temp[3]);
-            
-            // ---------- 电机5-8温度调试 ----------
-            // gcs().send_text(MAV_SEVERITY_INFO, "TEMP 5-8: %d %d %d %d", 
-            //     AP::fd_data().motor_rpm_packet.motor_temp[4],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[5],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[6],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[7]);
-            
-            // ---------- 电机9-12温度调试 ----------
-            // gcs().send_text(MAV_SEVERITY_INFO, "TEMP 9-12: %d %d %d %d", 
-            //     AP::fd_data().motor_rpm_packet.motor_temp[8],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[9],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[10],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[11]);
-            
-            // ---------- 电机13-16温度调试 ----------
-            // gcs().send_text(MAV_SEVERITY_INFO, "TEMP 13-16: %d %d %d %d", 
-            //     AP::fd_data().motor_rpm_packet.motor_temp[12],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[13],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[14],
-            //     AP::fd_data().motor_rpm_packet.motor_temp[15]);
-            
-            // ---------- BMS电压电流调试 ----------
-            gcs().send_text(MAV_SEVERITY_INFO, "BMS: V=%dmV I=%dmA SOC=%d%%", 
-                AP::fd_data().battery_info_packet.voltage,
-                AP::fd_data().battery_info_packet.current,
-                AP::fd_data().battery_info_packet.battery_remaining);
-            
-            // ---------- BMS故障码调试 ----------
-            gcs().send_text(MAV_SEVERITY_INFO, "BMS ERR: code=0x%04X id=%d", 
-                AP::fd_data().battery_error_packet.error_code,
-                AP::fd_data().battery_error_packet.battery_id);
-            
-            // ---------- BMS详细状态调试 (需要_bms_ptr有效) ----------
-            if (_bms_ptr != nullptr) {
-                gcs().send_text(MAV_SEVERITY_INFO, "BMS: SOC=%d SOH=%d V=%.1f I=%.1f", 
-                    _bms_ptr->status.SOC,
-                    _bms_ptr->status.SOH,
-                    _bms_ptr->status.Volt,
-                    _bms_ptr->status.Curr);
-                gcs().send_text(MAV_SEVERITY_INFO, "BMS: chg=%d dischg=%d chg_err=%d dischg_err=%d", 
-                    _bms_ptr->status.allow_charge,
-                    _bms_ptr->status.allow_discharge,
-                    _bms_ptr->status.error_charge_code,
-                    _bms_ptr->status.error_discharge_code);
-            }
-            
-            // ==================== 调试输出区域结束 ====================
-            
-            // 遍历所有MAVLink通道并发送消息
+            // ==================== 使用TUNNEL消息发送数据 ====================
             for (uint8_t i = 0; i < gcs().num_gcs(); i++) {
                 mavlink_channel_t chan = (mavlink_channel_t)(MAVLINK_COMM_0 + i);
                 
-                // 发送电机转速和温度数据 (MSG ID: 13000)
+                // 发送电机转速和温度数据 (via TUNNEL, payload_type=13000)
                 if (_enable_mot.get()) {
-                    if (HAVE_PAYLOAD_SPACE(chan, MOTOR_RPM)) {
-                        AP::fd_data().send_motor_rpm(chan);
+                    if (HAVE_PAYLOAD_SPACE(chan, TUNNEL)) {
+                        send_motor_rpm_via_tunnel(chan);
                     }
                 }
                 
-                // 发送电池错误信息 (MSG ID: 13001)
+                // 发送电池错误信息 (via TUNNEL, payload_type=13001)
                 if (_enable_bms.get()) {
-                    if (HAVE_PAYLOAD_SPACE(chan, BATTERY_ERROR)) {
-                        AP::fd_data().send_battery_error(chan);
+                    if (HAVE_PAYLOAD_SPACE(chan, TUNNEL)) {
+                        send_battery_error_via_tunnel(chan);
                     }
                 }
                 
-                // 发送电池电压电流信息 (MSG ID: 13002)
+                // 发送电池电压电流信息 (via TUNNEL, payload_type=13002)
                 if (_enable_bms.get()) {
-                    if (HAVE_PAYLOAD_SPACE(chan, BATTERY_INFO)) {
-                        AP::fd_data().send_battery_info(chan);
+                    if (HAVE_PAYLOAD_SPACE(chan, TUNNEL)) {
+                        send_battery_info_via_tunnel(chan);
                     }
                 }
             }

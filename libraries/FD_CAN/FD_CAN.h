@@ -12,6 +12,12 @@
 
 #define FD_CAN_MAX_MOT_NUM 16
 
+// TUNNEL消息payload_type定义
+#define TUNNEL_PAYLOAD_TYPE_MOTOR_RPM       13000
+#define TUNNEL_PAYLOAD_TYPE_BATTERY_ERROR   13001
+#define TUNNEL_PAYLOAD_TYPE_BATTERY_INFO    13002
+#define TUNNEL_PAYLOAD_TYPE_POWER_CONTROL   13003
+
 class FD_FAN;
 class FD_MOT;
 class FD_BMS;
@@ -24,7 +30,7 @@ public:
     friend class FD_BMS;
 
     FD_CAN();
-    ~FD_CAN();
+    ~FD_CAN() = default;
 
     /* Do not allow copies */
     FD_CAN(const FD_CAN &other) = delete;
@@ -45,9 +51,21 @@ public:
     // test if the CAN driver is ready to be armed
     bool pre_arm_check(char* reason, uint8_t reason_len);
 
-    FD_FAN *_fan_ptr{nullptr};  // 修复: 初始化为 nullptr
-    FD_MOT *_mot_ptr[FD_CAN_MAX_MOT_NUM]{};  // 修复: 初始化所有元素为 nullptr
-    FD_BMS *_bms_ptr{nullptr};  // 修复: 初始化为 nullptr
+    // =====================================================
+    // 使用TUNNEL消息发送数据的函数
+    // =====================================================
+    void send_motor_rpm_via_tunnel(mavlink_channel_t chan);
+    void send_battery_error_via_tunnel(mavlink_channel_t chan);
+    void send_battery_info_via_tunnel(mavlink_channel_t chan);
+
+    // =====================================================
+    // 处理接收到的TUNNEL消息 (新增)
+    // =====================================================
+    static void handle_mavlink_tunnel(const mavlink_tunnel_t& tunnel);
+
+    FD_FAN *_fan_ptr{nullptr};
+    FD_MOT *_mot_ptr[FD_CAN_MAX_MOT_NUM]{};
+    FD_BMS *_bms_ptr{nullptr};
 
     AP_Int32 _print;
     AP_Int16 _out;
@@ -58,14 +76,14 @@ public:
     struct {
         uint16_t rpm[FD_CAN_MAX_MOT_NUM];
         int8_t temp[FD_CAN_MAX_MOT_NUM];
-    } _mot_state{};  // 修复: 初始化结构体
+    } _mot_state{};
 
     struct {
         uint16_t error_code;
         uint8_t battery_id;
         uint16_t voltage;
         int16_t current;
-    } _bms_state{};  // 修复: 初始化结构体
+    } _bms_state{};
 
 private:
 
@@ -78,9 +96,9 @@ private:
     // read frame on CAN bus, returns true on succses
     bool read_frame(AP_HAL::CANFrame &recv_frame, uint64_t timeout);
 
-    bool _initialized{false};  // 修复: 初始化
-    char _thread_name[16]{};   // 修复: 初始化
-    uint8_t _driver_index{0};  // 修复: 初始化
-    AP_HAL::CANIface* _can_iface{nullptr};  // 修复: 初始化为 nullptr
+    bool _initialized{false};
+    char _thread_name[16]{};
+    uint8_t _driver_index{0};
+    AP_HAL::CANIface* _can_iface{nullptr};
     HAL_EventHandle sem_handle;
 };

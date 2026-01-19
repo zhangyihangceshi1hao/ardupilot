@@ -56,6 +56,7 @@
 #include <AP_Frsky_Telem/AP_Frsky_Telem.h>
 #include <RC_Channel/RC_Channel.h>
 #include <AP_VisualOdom/AP_VisualOdom.h>
+#include <FD_CAN/FD_CAN.h>
 
 #include "MissionItemProtocol_Waypoints.h"
 #include "MissionItemProtocol_Rally.h"
@@ -4065,6 +4066,18 @@ void GCS_MAVLINK::handle_common_message(const mavlink_message_t &msg)
     case MAVLINK_MSG_ID_TXHY_FAN206_SET:
         handle_txhy_fan206_set(msg);
         break;
+    
+    case MAVLINK_MSG_ID_TUNNEL:
+    {
+        // 解析 TUNNEL 消息
+        mavlink_tunnel_t tunnel;
+        mavlink_msg_tunnel_decode(&msg, &tunnel);
+        
+        // 调用 FD_CAN 的处理函数
+        FD_CAN::handle_mavlink_tunnel(tunnel);
+        break;
+    }
+
     }
 }
 
