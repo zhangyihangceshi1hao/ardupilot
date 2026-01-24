@@ -154,7 +154,7 @@ void Plane::init_ardupilot()
 #if AP_GRIPPER_ENABLED
     g2.gripper.init();
 #endif
-
+    user_init();
 #if AC_PRECLAND_ENABLED
     g2.precland.init(scheduler.get_loop_rate_hz());
 #endif

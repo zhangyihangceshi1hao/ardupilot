@@ -515,6 +515,8 @@ private:
         // are we doing loiter mode as a VTOL?
         bool vtol_loiter;
 
+        bool pass_wp;
+
         // how much correction have we added for terrain data
         float terrain_correction;
 
@@ -1251,6 +1253,9 @@ private:
 
     // last target alt we passed to tecs
     int32_t tecs_target_alt_cm;
+
+    void user_init();
+    void user_100Hz();
 
 public:
     void failsafe_check(void);
