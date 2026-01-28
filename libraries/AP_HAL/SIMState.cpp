@@ -94,7 +94,15 @@ void SIMState::update()
 
     _fdm_input_step();
 }
+/*
+  setup for SITL handling
+ */
+void SIMState::_sitl_setup(const char *home_str)
+{
+    _home_str = home_str;
 
+    printf("Starting SITL input\n");
+}
 /*
   setup for SITL handling
  */
