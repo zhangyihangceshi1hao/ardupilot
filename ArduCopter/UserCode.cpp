@@ -5,13 +5,17 @@ void Copter::userhook_init()
 {
     // put your initialisation code here
     // this will be called once at start-up
+    // gcs().send_text(MAV_SEVERITY_CRITICAL, "hello world!");
+    AP::fd_uartmav().init();
 }
 #endif
 
 #ifdef USERHOOK_FASTLOOP
 void Copter::userhook_FastLoop()
 {
+    // gcs().send_text(MAV_SEVERITY_CRITICAL, "userhook_FastLoop!");
     // put your 100Hz code here
+    AP::fd_uartmav().update();
 }
 #endif
 
