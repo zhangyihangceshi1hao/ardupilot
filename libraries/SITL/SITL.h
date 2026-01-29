@@ -109,6 +109,7 @@ public:
         AP_Param::setup_object_defaults(this, var_info);
         AP_Param::setup_object_defaults(this, var_info2);
         AP_Param::setup_object_defaults(this, var_info3);
+        AP_Param::setup_object_defaults(this, var_infosimparam);
 #if HAL_SIM_GPS_ENABLED
         AP_Param::setup_object_defaults(this, var_gps);
 #endif
@@ -160,6 +161,7 @@ public:
     static const struct AP_Param::GroupInfo var_info[];
     static const struct AP_Param::GroupInfo var_info2[];
     static const struct AP_Param::GroupInfo var_info3[];
+    static const struct AP_Param::GroupInfo var_infosimparam[];
 #if HAL_SIM_GPS_ENABLED
     static const struct AP_Param::GroupInfo var_gps[];
 #endif
@@ -254,11 +256,14 @@ public:
     AP_Int16 on_hardware_relay_enable_mask;   // mask of relays passed through to actual hardware
 
     AP_Float uart_byte_loss_pct;
+
     AP_Int8 sim_frame_type;
+
 #ifdef SFML_JOYSTICK
     AP_Int8 sfml_joystick_id;
     AP_Int8 sfml_joystick_axis[8];
 #endif
+
     AP_Float s;
     AP_Float b;
     AP_Float c;
