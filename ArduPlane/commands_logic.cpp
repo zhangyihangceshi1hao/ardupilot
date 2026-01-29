@@ -664,7 +664,8 @@ bool Plane::verify_nav_wp(const AP_Mission::Mission_Command& cmd)
     } else {
         nav_controller->update_waypoint(current_loc, flex_next_WP_loc);
     }
-
+     // set airspeed from
+    new_airspeed_cm =cmd.p2*100;
     // see if the user has specified a maximum distance to waypoint
     // If override with p3 - then this is not used as it will overfly badly
     if (g.waypoint_max_radius > 0 &&
