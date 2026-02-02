@@ -237,23 +237,183 @@ void GCS_MAVLINK::send_mcu_status(void)
 #endif
 
 #if AP_BATTERY_ENABLED
-// returns the battery remaining percentage if valid, -1 otherwise
+
+// 电池百分比计算方法选择
+// 设为1表示使用自定义电压曲线（支持多电芯），设为0表示使用默认方法
+#ifndef GCS_USE_CUSTOM_BATT_PCT
+#define GCS_USE_CUSTOM_BATT_PCT 1
+#endif
+
+// 静态运行时标志
+static bool gcs_use_custom_batt_pct = GCS_USE_CUSTOM_BATT_PCT;
+
+// 电池放电曲线查找表（基于测试数据）
+// 总容量: 30000mAh
+// 电压步长: ~0.05V
+// 数据来源: 电池放电数据.xlsx
+
+// 1C放电曲线查找表（电压从高到低排序）
+// 保守曲线 - 推荐用于纯电压估算（无电流传感器）
+static const float _battery_curve_1c_voltage[] = {
+    4.2509f, 4.2171f, 4.1514f, 4.1009f, 4.0510f, 4.0008f, 3.9508f, 3.9009f,
+    3.8510f, 3.8008f, 3.7509f, 3.7010f, 3.6511f, 3.6008f, 3.5509f, 3.5010f,
+    3.4508f, 3.4009f, 3.3510f, 3.3010f, 3.2508f, 3.2009f, 3.1510f, 3.1008f,
+    3.0509f, 3.0009f, 2.9510f, 2.9008f, 2.8509f, 2.8010f, 2.7508f, 2.7008f,
+    2.6509f, 2.6010f, 2.5508f, 2.5009f, 2.5000f,
+};
+static const uint8_t _battery_curve_1c_pct[] = {
+    100, 100, 99, 99, 99, 97, 91, 82, 77, 73, 69, 65, 60, 57, 53, 49,
+    46, 42, 39, 36, 32, 28, 24, 21, 18, 15, 12, 10, 8, 6, 5, 3,
+    2, 1, 0, 0, 0,
+};
+
+// 2C放电曲线查找表（用于带电流传感器的高负载场景）
+static const float _battery_curve_2c_voltage[] = {
+    4.2556f, 4.2069f, 4.1548f, 4.0947f, 4.0566f, 4.0057f, 3.9558f, 3.9056f,
+    3.8554f, 3.8058f, 3.7555f, 3.7056f, 3.6557f, 3.6055f, 3.5556f, 3.5057f,
+    3.4557f, 3.4055f, 3.3556f, 3.3057f, 3.2555f, 3.2056f, 3.1556f, 3.1057f,
+    3.0555f, 3.0056f, 2.9557f, 2.9058f, 2.8555f, 2.8056f, 2.7557f, 2.7055f,
+    2.6556f, 2.6057f, 2.5558f, 2.5055f, 2.5000f,
+};
+static const uint8_t _battery_curve_2c_pct[] = {
+    100, 100, 99, 99, 99, 99, 99, 98, 91, 81, 75, 70, 65, 61, 56, 52,
+    49, 45, 42, 38, 35, 31, 27, 24, 20, 17, 14, 12, 10, 8, 6, 4,
+    3, 2, 1, 0, 0,
+};
+
+// 默认放电倍率（无电流传感器时的估算）
+#define BATT_DEFAULT_DISCHARGE_RATE 1.0f
+
+// 电池容量 (mAh)
+#define BATTERY_TOTAL_CAPACITY_MAH 30000
+
+// 调试输出开关
+#define BATT_CURVE_DEBUG_ENABLED 0
+
+// 单片电芯最大电压（用于计算电池串联数）
+#define BATT_CELL_MAX_VOLTAGE 4.2f
+
+// 根据总电压估算电池串联数（S数）
+// 锂电单节电压范围: 3.0V(放空) ~ 4.2V(满电)
+// 使用电压范围区间判断，避免低电量时误判
+static uint8_t estimate_battery_s_count(float total_voltage)
+{
+    if (total_voltage <= 0) {
+        return 1;
+    }
+
+    // 无人机常用电池: 4S(12-16.8V), 6S(18-25.2V), 12S(36-50.4V)
+    if (total_voltage < 8.0f)      return 2;
+    else if (total_voltage < 14.0f) return 3;
+    else if (total_voltage < 18.0f) return 4;  // 4S: 12.0-16.8V
+    else if (total_voltage < 28.0f) return 6;  // 6S: 18.0-25.2V
+    else if (total_voltage < 40.0f) return 12; // 12S: 36.0-50.4V
+    else                           return 12;
+}
+
+
+// 查找表插值辅助函数
+static float interpolate_battery_pct(float voltage, const float* lut_v, const uint8_t* lut_p, uint8_t lut_size)
+{
+    if (voltage >= lut_v[0]) {
+        return lut_p[0];
+    }
+    if (voltage <= lut_v[lut_size - 1]) {
+        return lut_p[lut_size - 1];
+    }
+
+    uint8_t lo = 0, hi = lut_size - 1;
+    while (hi - lo > 1) {
+        uint8_t mid = (lo + hi) / 2;
+        if (voltage >= lut_v[mid]) {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+
+    float v_upper = lut_v[lo];
+    float v_lower = lut_v[hi];
+    float t = (voltage - v_lower) / (v_upper - v_lower);
+    return lut_p[hi] + t * (lut_p[lo] - lut_p[hi]);
+}
+
+// 仅根据电压估算剩余电池百分比
+float GCS_MAVLINK::estimate_battery_pct_from_voltage(float total_voltage) const
+{
+    uint8_t s_count = estimate_battery_s_count(total_voltage);
+    float cell_voltage = total_voltage / s_count;
+
+#if BATT_CURVE_DEBUG_ENABLED
+    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "BATT: V=%.2fV S=%u 单体=%.2fV",
+                  (double)total_voltage, (unsigned)s_count, (double)cell_voltage);
+#endif
+
+    const uint8_t lut_size = ARRAY_SIZE(_battery_curve_1c_voltage);
+    return interpolate_battery_pct(cell_voltage, _battery_curve_1c_voltage, _battery_curve_1c_pct, lut_size);
+}
+
+// 自定义电池百分比计算（支持多电芯）
+int8_t GCS_MAVLINK::battery_remaining_pct_custom(const uint8_t instance) const
+{
+    const AP_BattMonitor &battery = AP::battery();
+    float voltage = battery.voltage(instance);
+
+    if (voltage <= 0.0f) {
+        return -1;
+    }
+
+    int32_t capacity_mah = battery.pack_capacity_mah(instance);
+    if (capacity_mah <= 100) {
+        capacity_mah = BATTERY_TOTAL_CAPACITY_MAH;
+    }
+
+    float current_amps;
+    if (battery.current_amps(current_amps, instance)) {
+        uint8_t s_count = estimate_battery_s_count(voltage);
+        float discharge_rate = (current_amps > 0.1f) ? (current_amps * 1000.0f / capacity_mah) : BATT_DEFAULT_DISCHARGE_RATE;
+
+        const float* lut_v;
+        const uint8_t* lut_p;
+        if (discharge_rate <= 1.5f) {
+            lut_v = _battery_curve_1c_voltage;
+            lut_p = _battery_curve_1c_pct;
+        } else {
+            lut_v = _battery_curve_2c_voltage;
+            lut_p = _battery_curve_2c_pct;
+        }
+
+        uint8_t lut_size = ARRAY_SIZE(_battery_curve_1c_voltage);
+        float cell_voltage = voltage / s_count;
+        float percentage = interpolate_battery_pct(cell_voltage, lut_v, lut_p, lut_size);
+        return (int8_t)constrain_float(percentage, 0.0f, 100.0f);
+    }
+
+    // 无电流传感器：使用纯电压估算
+    return (int8_t)constrain_float(estimate_battery_pct_from_voltage(voltage), 0.0f, 100.0f);
+}
+
+// 返回电池剩余百分比，如果无效则返回-1
 int8_t GCS_MAVLINK::battery_remaining_pct(const uint8_t instance) const {
-    uint8_t percentage;
-    return AP::battery().capacity_remaining_pct(percentage, instance) ? MIN(percentage, INT8_MAX) : -1;
+    if (gcs_use_custom_batt_pct) {
+        return battery_remaining_pct_custom(instance);
+    } else {
+        uint8_t percentage;
+        return AP::battery().capacity_remaining_pct(percentage, instance) ? MIN(percentage, INT8_MAX) : -1;
+    }
 }
 
 void GCS_MAVLINK::send_battery_status(const uint8_t instance) const
 {
-    // catch the battery backend not supporting the required number of cells
+    // 检查电池后端是否支持所需数量的电芯
     static_assert(sizeof(AP_BattMonitor::cells) >= (sizeof(uint16_t) * MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN),
-                  "Not enough battery cells for the MAVLink message");
+                  "电池电芯数量不足以发送MAVLink消息");
 
     const AP_BattMonitor &battery = AP::battery();
     float temp;
     bool got_temperature = battery.get_temperature(temp, instance);
 
-    // prepare arrays of individual cell voltages
+    // 准备各电芯电压数组
     uint16_t cell_mvolts[MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN];
     uint16_t cell_mvolts_ext[MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_EXT_LEN];
     const uint16_t max_cell_mV = 0xFFFEU;
@@ -261,11 +421,11 @@ void GCS_MAVLINK::send_battery_status(const uint8_t instance) const
 
     if (battery.has_cell_voltages(instance)) {
         const AP_BattMonitor::cells& batt_cells = battery.get_cell_voltages(instance);
-        static_assert(sizeof(cell_mvolts) <= sizeof(batt_cells.cells), "cell array length not large enough");
+        static_assert(sizeof(cell_mvolts) <= sizeof(batt_cells.cells), "电芯数组长度不足");
 
-        // copy the first 10 cells
+        // 复制前10个电芯
         memcpy(cell_mvolts, batt_cells.cells, sizeof(cell_mvolts));
-        // 11 ... 14 use a second cell_volts_ext array
+        // 11 ... 14 使用第二个 cell_volts_ext 数组
         for (uint8_t i = 0; i < MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_EXT_LEN; i++) {
             if (MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN+i < uint8_t(ARRAY_SIZE(batt_cells.cells))) {
                 cell_mvolts_ext[i] = batt_cells.cells[MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN+i];
@@ -273,11 +433,6 @@ void GCS_MAVLINK::send_battery_status(const uint8_t instance) const
                 cell_mvolts_ext[i] = 0;
             }
         }
-        /*
-          now adjust voltages to cope with two things:
-             1) we may be reporting sag corrected voltage
-             2) the battery may have more cells than can be reported by the backend, so the actual voltage may be higher than the sum
-        */
         const float voltage_mV = battery.gcs_voltage(instance) * 1e3f;
         float voltage_mV_sum = 0;
         uint8_t non_zero_cell_count = 0;
@@ -294,7 +449,7 @@ void GCS_MAVLINK::send_battery_status(const uint8_t instance) const
             }
         }
         if (voltage_mV > voltage_mV_sum && non_zero_cell_count > 0) {
-            // distribute the extra voltage over the non-zero cells
+            // 将剩余电压分配到非零电芯
             uint32_t extra_mV = (voltage_mV - voltage_mV_sum) / non_zero_cell_count;
             for (uint8_t i=0; i<MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN; i++) {
                 if (cell_mvolts[i] > 0 && cell_mvolts[i] != invalid_cell_mV) {
@@ -308,16 +463,14 @@ void GCS_MAVLINK::send_battery_status(const uint8_t instance) const
             }
         }
     } else {
-        // for battery monitors that cannot provide voltages for individual cells the battery's total voltage is put into the first cell
-        // if the total voltage cannot fit into a single field, the remainder into subsequent fields.
-        // the GCS can then recover the pack voltage by summing all non ignored cell values an we can report a pack up to 655.34 V
+        // 对于无法提供各电芯电压的电池监视器，将电池总电压放入第一个电芯
+        // 如果总电压无法放入单个字段，则将剩余部分放入后续字段
         float voltage_mV = battery.gcs_voltage(instance) * 1e3f;
         for (uint8_t i = 0; i < MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN; i++) {
           if (voltage_mV < 0.001f) {
-              // too small to send to the GCS, set it to the no cell value
               cell_mvolts[i] = UINT16_MAX;
           } else {
-              cell_mvolts[i] = MIN(voltage_mV, max_cell_mV); // Can't send more then UINT16_MAX - 1 in a cell
+              cell_mvolts[i] = MIN(voltage_mV, max_cell_mV);
               voltage_mV -= max_cell_mV;
           }
         }
@@ -328,7 +481,7 @@ void GCS_MAVLINK::send_battery_status(const uint8_t instance) const
 
     float current, consumed_mah, consumed_wh;
     const int8_t percentage = battery_remaining_pct(instance);
-    
+
     if (battery.current_amps(current, instance)) {
          current = constrain_float(current * 100,-INT16_MAX,INT16_MAX);
     } else {
@@ -348,23 +501,23 @@ void GCS_MAVLINK::send_battery_status(const uint8_t instance) const
     }
 
     mavlink_msg_battery_status_send(chan,
-                                    instance, // id
-                                    MAV_BATTERY_FUNCTION_UNKNOWN, // function
-                                    MAV_BATTERY_TYPE_UNKNOWN, // type
-                                    got_temperature ? ((int16_t) (temp * 100)) : INT16_MAX, // temperature. INT16_MAX if unknown
-                                    cell_mvolts, // cell voltages
-                                    current,      // current in centiampere
-                                    consumed_mah, // total consumed current in milliampere.hour
-                                    consumed_wh,  // consumed energy in hJ (hecto-Joules)
+                                    instance,
+                                    MAV_BATTERY_FUNCTION_UNKNOWN,
+                                    MAV_BATTERY_TYPE_UNKNOWN,
+                                    got_temperature ? ((int16_t) (temp * 100)) : INT16_MAX,
+                                    cell_mvolts,
+                                    current,
+                                    consumed_mah,
+                                    consumed_wh,
                                     constrain_int16(percentage, -1, 100),
-                                    time_remaining, // time remaining, seconds
-                                    battery.get_mavlink_charge_state(instance), // battery charge state
-                                    cell_mvolts_ext, // Cell 11..14 voltages
-                                    0, // battery mode
-                                    battery.get_mavlink_fault_bitmask(instance));   // fault_bitmask
+                                    time_remaining,
+                                    battery.get_mavlink_charge_state(instance),
+                                    cell_mvolts_ext,
+                                    0,
+                                    battery.get_mavlink_fault_bitmask(instance));
 }
 
-// returns true if all battery instances were reported
+// 如果所有电池实例都已报告则返回true
 bool GCS_MAVLINK::send_battery_status()
 {
     const AP_BattMonitor &battery = AP::battery();
