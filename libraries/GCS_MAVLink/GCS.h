@@ -391,6 +391,7 @@ public:
 #endif
     void send_water_depth() const;
     int8_t battery_remaining_pct(const uint8_t instance) const;
+    float estimate_battery_pct_from_voltage(float voltage) const;
 
 #if HAL_HIGH_LATENCY2_ENABLED
     void send_high_latency2() const;
