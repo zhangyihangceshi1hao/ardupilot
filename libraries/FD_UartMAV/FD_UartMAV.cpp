@@ -92,14 +92,15 @@ void FD_UartMAV::send_raw_gps()
         return;
     }
 
-    static uint32_t last_gps_ms = AP_HAL::millis();
-    if (AP_HAL::millis() - last_gps_ms < 100) {
-        return;
-    }
-    last_gps_ms = AP_HAL::millis();
+    // static uint32_t last_gps_ms = AP_HAL::millis();
+    // if (AP_HAL::millis() - last_gps_ms < 100) {
+    //     return;
+    // }
+    // last_gps_ms = AP_HAL::millis();
 
     mavlink_message_t msg;
     AP::gps().pack_mavlink_gps_raw(sys_id.get(), sys_id.get(), msg);
+
     send_msg(&msg);
 }
 

@@ -65,7 +65,7 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(update_throttle_hover, 100,     90,  24),
     SCHED_TASK_CLASS(RC_Channels,     (RC_Channels*)&plane.g2.rc_channels, read_mode_switch,           7,    100, 27),
     SCHED_TASK(update_GPS_50Hz,        50,    300,  30),
-    SCHED_TASK(update_GPS_10Hz,        10,    400,  33),
+    SCHED_TASK(update_GPS_10Hz,        50,    400,  33),
     SCHED_TASK(navigate,               10,    150,  36),
     SCHED_TASK(update_compass,         10,    200,  39),
     SCHED_TASK(calc_airspeed_errors,   10,    100,  42),
@@ -144,7 +144,7 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
 #if AC_PRECLAND_ENABLED
     SCHED_TASK(precland_update, 400, 50, 160),
 #endif
-    SCHED_TASK(user_100Hz,          100,    100,  175),
+    SCHED_TASK(user_100Hz,          4.5,    100,  175),
 };
 
 void Plane::get_scheduler_tasks(const AP_Scheduler::Task *&tasks,
