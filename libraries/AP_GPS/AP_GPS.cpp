@@ -1039,7 +1039,7 @@ void AP_GPS::update_instance(uint8_t instance)
 
     if (data_should_be_logged) {
         // keep count of delayed frames and average frame delay for health reporting
-        const uint16_t gps_max_delta_ms = 200; // 200 ms (5Hz) + 45 ms buffer
+        const uint16_t gps_max_delta_ms = 245; // 200 ms (5Hz) + 45 ms buffer
         GPS_timing &t = timing[instance];
 
         if (t.delta_time_ms > gps_max_delta_ms) {
