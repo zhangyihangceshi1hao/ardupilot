@@ -110,7 +110,7 @@
 #include "avoidance_adsb.h"
 #endif
 #include "AP_Arming.h"
-
+#include <AP_Serial_LIDE/AP_Serial_LIDE.h>
 /*
   main APM:Plane class
  */
@@ -233,7 +233,7 @@ private:
 
     // selected navigation controller
     AP_Navigation *nav_controller = &L1_controller;
-
+    AP_Serial_LIDE serial_lide;
     // Camera
 #if AP_CAMERA_ENABLED
     AP_Camera camera{MASK_LOG_CAMERA};

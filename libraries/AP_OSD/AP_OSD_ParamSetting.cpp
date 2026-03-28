@@ -116,7 +116,7 @@ static const char* SERIAL_PROTOCOL_VALUES[] = {
     "", "MAV", "MAV2", "FSKY_D", "FSKY_S", "GPS", "", "ALEX", "STORM", "RNG", 
     "FSKY_TX", "LID360", "", "BEACN", "VOLZ", "SBUS", "ESC_TLM", "DEV_TLM", "OPTFLW", "RBTSRV",
     "NMEA", "WNDVNE", "SLCAN", "RCIN", "MGSQRT", "LTM", "RUNCAM", "HOT_TLM", "SCRIPT", "CRSF",
-    "GEN", "WNCH", "MSP", "DJI"
+    "GEN", "WNCH", "MSP", "DJI", "LIDE"
 };
 
 static const char* SERVO_FUNCTIONS[] = {

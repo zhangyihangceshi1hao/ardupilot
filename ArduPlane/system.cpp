@@ -155,6 +155,8 @@ void Plane::init_ardupilot()
 #if AP_GRIPPER_ENABLED
     g2.gripper.init();
 #endif
+    serial_lide.init(serial_manager);
+
 }
 
 //********************************************************************************
