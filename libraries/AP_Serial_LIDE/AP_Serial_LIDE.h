@@ -2,7 +2,7 @@
 #include <GCS_MAVLink/GCS.h>
 #include <AP_HAL/AP_HAL.h>
 #include <AP_SerialManager/AP_SerialManager.h>
-
+#include <stdio.h>
 class AP_Serial_LIDE
 {
 public:
