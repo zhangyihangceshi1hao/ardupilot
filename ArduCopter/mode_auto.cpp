@@ -361,6 +361,15 @@ void ModeAuto::takeoff_start(const Location& dest_loc)
     // initialise alt for WP_NAVALT_MIN and set completion alt
     auto_takeoff.start(alt_target_cm, alt_target_terrain);
 
+    // record spool warm-up start time (only when starting from ground)
+    if (copter.ap.land_complete) {
+        takeoff_spool_start_ms = AP_HAL::millis();
+        warmup_last_sec = 0;
+        gcs().send_text(MAV_SEVERITY_INFO, "Auto: 电机预热，3s后起飞");
+    } else {
+        takeoff_spool_start_ms = 0;
+    }
+
     // set submode
     set_submode(SubMode::TAKEOFF);
 }
@@ -994,6 +1003,40 @@ void ModeAuto::takeoff_run()
     if ((copter.g2.auto_options & (int32_t)Options::AllowTakeOffWithoutRaisingThrottle) != 0) {
         copter.set_auto_armed(true);
     }
+
+    // spool warm-up phase: spin motors at ground idle for 3s before starting takeoff
+    // this prevents ESC stress from cold start and gives time to abort if needed
+    const uint32_t spool_warmup_ms = 3000;
+    if (takeoff_spool_start_ms != 0) {
+        uint32_t elapsed = AP_HAL::millis() - takeoff_spool_start_ms;
+        if (elapsed < spool_warmup_ms) {
+            // spin motors at ground idle throttle so ESCs warm up and auto_disarm_check() resets
+            copter.set_auto_armed(true);
+            motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
+            attitude_control->reset_rate_controller_I_terms_smoothly();
+            attitude_control->reset_yaw_target_and_rate();
+            // linearly ramp throttle from 0 to 15% over the warm-up period
+            // smoother than a fixed value: eliminates ESC kick at the start
+            const float idle_throttle = 0.15f;
+            float warmup_throttle = idle_throttle * ((float)elapsed / (float)spool_warmup_ms);
+            attitude_control->set_throttle_out(warmup_throttle, false, 0.0f);
+            pos_control->relax_velocity_controller_xy();
+            pos_control->update_xy_controller();
+            // countdown + throttle messages, each sent exactly once per second
+            uint8_t cur_sec = (uint8_t)(elapsed / 1000) + 1;  // 1 at t=0s, 2 at t=1s, 3 at t=2s
+            if (cur_sec <= 3 && cur_sec != warmup_last_sec) {
+                warmup_last_sec = cur_sec;
+                uint8_t countdown = 4 - cur_sec;  // 3→2→1
+                gcs().send_text(MAV_SEVERITY_INFO, "Auto: 起飞倒计时 %u  油门: %.1f%%",
+                                countdown, (double)(warmup_throttle * 100.0f));
+            }
+            return;
+        }
+        // warm-up complete, clear flag and proceed with takeoff
+        takeoff_spool_start_ms = 0;
+        gcs().send_text(MAV_SEVERITY_INFO, "Auto: 起飞!");
+    }
+
     auto_takeoff.run();
 }
 

@@ -687,6 +687,8 @@ private:
     State state = State::FlyToLocation;
 
     bool waiting_to_start;  // true if waiting for vehicle to be armed or EKF origin before starting mission
+    uint32_t takeoff_spool_start_ms;  // system time when takeoff spool-up warm-up began (0 = not started)
+    uint8_t  warmup_last_sec;         // last countdown second that has been sent (0=none, 1/2/3 sent)
 
     // True if we have entered AUTO to perform a DO_LAND_START landing sequence and we should report as AUTO RTL mode
     bool auto_RTL;
