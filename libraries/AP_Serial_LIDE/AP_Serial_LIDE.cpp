@@ -1,7 +1,6 @@
 #include "AP_Serial_LIDE.h"
 
 extern const AP_HAL::HAL &hal;
-AP_Serial_LIDE *AP_Serial_LIDE::singleton = nullptr;
 
 void AP_Serial_LIDE::init(const AP_SerialManager &serial_manager)
 {
@@ -56,8 +55,32 @@ void AP_Serial_LIDE::send_heartbeat_pck()
         gcs().send_text(MAV_SEVERITY_ERROR, "LIDE Serial send failed");
     }
 }
-
-AP_Serial_LIDE::AP_Serial_LIDE()
+void AP_Serial_LIDE::get_telem_data()
 {
-    singleton = this;
+    // 检查串口是否有效
+    if (_serial_port == nullptr)
+    {
+        return;
+    }
+
+    // 检查串口是否打开
+    if (!_serial_port->is_initialized())
+    {
+        // 尝试重新初始化
+        _serial_port->begin(115200);
+        hal.scheduler->delay(1000);
+    }
+
+    uint8_t buffer[1024];
+    auto ret = _serial_port->read(buffer, sizeof(buffer));
+    if (ret > 0)
+    {
+        gcs().send_text(MAV_SEVERITY_ERROR, "LIDE Serial read true, bytes read: %d", ret);
+        // 处理接收到的数据
+        // ...
+    }
+    else
+    {
+        gcs().send_text(MAV_SEVERITY_ERROR, "LIDE Serial read failed");
+    }
 }
