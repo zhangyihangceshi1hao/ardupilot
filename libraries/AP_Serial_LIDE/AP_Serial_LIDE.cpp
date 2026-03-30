@@ -3,7 +3,13 @@
 #define LIDE_HEADER1 0x5A
 #define LIDE_HEADER2 0xA5
 extern const AP_HAL::HAL &hal;
-
+// 定义静态成员变量
+AP_Serial_LIDE* AP_Serial_LIDE::_singleton = nullptr;
+AP_Serial_LIDE::AP_Serial_LIDE() :
+    _serial_port(nullptr)
+{
+    _singleton = this;
+}
 void AP_Serial_LIDE::init(const AP_SerialManager &serial_manager)
 {
     _serial_port = serial_manager.find_serial(AP_SerialManager::SerialProtocol_LIDE, 0);
@@ -24,39 +30,57 @@ void AP_Serial_LIDE::loop(void)
 {
     while (true)
     {
-        hal.scheduler->delay(500);
-        // send_heartbeat_pck();
+        hal.scheduler->delay(100);
+        send_heartbeat_pck();
     }
 }
-
 void AP_Serial_LIDE::send_heartbeat_pck()
 {
-    // 检查串口是否有效
+    // ===== 1. 串口检查 =====
     if (_serial_port == nullptr)
     {
         return;
     }
 
-    // 检查串口是否打开
     if (!_serial_port->is_initialized())
     {
-        // 尝试重新初始化
         _serial_port->begin(115200);
-        hal.scheduler->delay(1000);
+        hal.scheduler->delay(100);
     }
 
-    uint8_t heartbeat_pck[10] = {0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    // ===== 2. 填充固定字段 =====
+    _engine_control.controller_id = 0xA5;
+    _engine_control.aircraft_id   = 0x5A;
+    _engine_control.data_length   = 14;
 
-    auto ret = _serial_port->write(heartbeat_pck, sizeof(heartbeat_pck));
-    if (ret == 10)
+    // ===== 3. 帧计数 =====
+    _engine_control.frame_counter++;
+
+    // ===== 4. 计算校验（前13字节异或）=====
+    uint8_t *data = (uint8_t*)&_engine_control;
+
+    uint8_t checksum = 0;
+    for (int i = 0; i < 13; i++)
     {
-        gcs().send_text(MAV_SEVERITY_ERROR, "LIDE Serial send true");
+        checksum ^= data[i];
+    }
+    _engine_control.checksum = checksum;
+
+    // ===== 5. 串口发送 =====
+    auto ret = _serial_port->write((uint8_t*)&_engine_control,
+                                   sizeof(LIDE_Engine_Control_t));
+
+    // ===== 6. 打印日志 =====
+    if (ret == sizeof(LIDE_Engine_Control_t))
+    {
+        gcs().send_text(MAV_SEVERITY_DEBUG, "LIDE Engine PCK send OK");
     }
     else
     {
-        gcs().send_text(MAV_SEVERITY_ERROR, "LIDE Serial send failed");
+        gcs().send_text(MAV_SEVERITY_ERROR, "LIDE Engine PCK send FAIL");
     }
 }
+
 
 
 
@@ -69,7 +93,7 @@ void AP_Serial_LIDE::get_telem_data()
 
     static uint8_t buffer[LIDE_FRAME_LEN];
     static uint8_t index = 0;
-
+    gcs().send_text(MAV_SEVERITY_WARNING, "LIDE frame OK1");
     while (_serial_port->available() > 0) {
 
         uint8_t byte = _serial_port->read();
@@ -81,7 +105,7 @@ void AP_Serial_LIDE::get_telem_data()
             }
             continue;
         }
-
+gcs().send_text(MAV_SEVERITY_WARNING, "LIDE frame OK2");
         if (index == 1) {
             if (byte == LIDE_HEADER2) {
                 buffer[index++] = byte;
@@ -96,7 +120,7 @@ void AP_Serial_LIDE::get_telem_data()
             }
             continue;
         }
-
+gcs().send_text(MAV_SEVERITY_WARNING, "LIDE frame OK3");
         // ================= 收满54字节 =================
         buffer[index++] = byte;
 
@@ -217,4 +241,36 @@ void AP_Serial_LIDE::get_telem_data()
             index = 0;
         }
     }
+}
+
+void AP_Serial_LIDE::set_cmd_controll(uint8_t cmd) {
+    _engine_control.cmd_controll = cmd;
+}
+void AP_Serial_LIDE::set_throttle(uint16_t throttle) {
+    _engine_control.throttle = throttle;
+}
+void AP_Serial_LIDE::set_altitude(uint16_t altitude) {
+    _engine_control.altitude = altitude;
+}
+void AP_Serial_LIDE::set_airspeed(uint8_t airspeed) {
+    _engine_control.airspeed = airspeed;
+}
+uint8_t AP_Serial_LIDE::get_cmd_controll(void) const
+{
+    return _engine_control.cmd_controll;
+}
+
+uint16_t AP_Serial_LIDE::get_throttle(void) const
+{
+    return _engine_control.throttle;
+}
+
+uint16_t AP_Serial_LIDE::get_altitude(void) const
+{
+    return _engine_control.altitude;
+}
+
+uint8_t AP_Serial_LIDE::get_airspeed(void) const
+{
+    return _engine_control.airspeed;
 }
