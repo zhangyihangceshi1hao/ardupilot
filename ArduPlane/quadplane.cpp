@@ -3186,6 +3186,37 @@ void QuadPlane::takeoff_controller(void)
         return;
     }
 
+    // spool warm-up phase: spin motors at ground idle for 3s before starting takeoff
+    // prevents ESC stress from cold start and gives time to abort
+    const uint32_t spool_warmup_ms = 3000;
+    if (takeoff_spool_start_ms != 0) {
+        uint32_t elapsed = now - takeoff_spool_start_ms;
+        if (elapsed < spool_warmup_ms) {
+            motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
+            attitude_control->reset_rate_controller_I_terms_smoothly();
+            attitude_control->reset_yaw_target_and_rate();
+            // linearly ramp throttle from 0 to 15% over the warm-up period
+            const float idle_throttle = 0.15f;
+            float warmup_throttle = idle_throttle * ((float)elapsed / (float)spool_warmup_ms);
+            attitude_control->set_throttle_out(warmup_throttle, false, 0.0f);
+            pos_control->relax_velocity_controller_xy();
+            pos_control->update_xy_controller();
+            // countdown message sent once per second
+            uint8_t cur_sec = (uint8_t)(elapsed / 1000) + 1;  // 1 at t=0s, 2 at t=1s, 3 at t=2s
+            if (cur_sec <= 3 && cur_sec != takeoff_warmup_last_sec) {
+                takeoff_warmup_last_sec = cur_sec;
+                uint8_t countdown = 4 - cur_sec;  // 3→2→1
+                gcs().send_text(MAV_SEVERITY_INFO, "VTOL: 起飞倒计时 %u  油门: %.1f%%",
+                                countdown, (double)(warmup_throttle * 100.0f));
+            }
+            // reset takeoff timer so it doesn't count warm-up as flight time
+            takeoff_start_time_ms = now;
+            return;
+        }
+        // warm-up complete
+        takeoff_spool_start_ms = 0;
+        gcs().send_text(MAV_SEVERITY_INFO, "VTOL: 起飞!");
+    }
 
     /*
       for takeoff we use the position controller
@@ -3423,6 +3454,17 @@ bool QuadPlane::do_vtol_takeoff(const AP_Mission::Mission_Command& cmd)
     // setup the takeoff failure handling code
     takeoff_start_time_ms = millis();
     takeoff_time_limit_ms = MAX(travel_time * takeoff_failure_scalar * 1000, 5000); // minimum time 5 seconds
+
+    // record spool warm-up start time when starting from ground
+    if (!plane.is_flying()) {
+        takeoff_spool_start_ms = millis();
+        takeoff_warmup_last_sec = 0;
+        // compensate timeout for the 3s warm-up period so it doesn't count against takeoff time
+        takeoff_time_limit_ms += 3000;
+        gcs().send_text(MAV_SEVERITY_INFO, "VTOL: 电机预热，3s后起飞");
+    } else {
+        takeoff_spool_start_ms = 0;
+    }
 
     return true;
 }

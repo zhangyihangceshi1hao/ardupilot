@@ -627,6 +627,8 @@ private:
     AP_Float maximum_takeoff_airspeed;
     uint32_t takeoff_start_time_ms;
     uint32_t takeoff_time_limit_ms;
+    uint32_t takeoff_spool_start_ms;  // system time when takeoff spool-up warm-up began (0 = not started)
+    uint8_t  takeoff_warmup_last_sec; // last countdown second sent (0=none)
 
     float last_land_final_agl;
 
