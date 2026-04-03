@@ -790,12 +790,14 @@ bool AP_Mission::read_cmd_from_storage(uint16_t index, Mission_Command& cmd) con
     if (b1 == 0 || b1 == 1) {
         cmd.id = _storage.read_uint16(pos_in_storage+1);
         cmd.p1 = _storage.read_uint16(pos_in_storage+3);
-        _storage.read_block(packed_content.bytes, pos_in_storage+5, 10);
+        cmd.p2 = _storage.read_uint16(pos_in_storage+5);
+        _storage.read_block(packed_content.bytes, pos_in_storage+7, 10);
         format_conversion(b1, cmd, packed_content);
     } else {
         cmd.id = b1;
         cmd.p1 = _storage.read_uint16(pos_in_storage+1);
-        _storage.read_block(packed_content.bytes, pos_in_storage+3, 12);
+        cmd.p2 = _storage.read_uint16(pos_in_storage+3);
+        _storage.read_block(packed_content.bytes, pos_in_storage+5, 12);
     }
 
     if (stored_in_location(cmd.id)) {
@@ -907,7 +909,8 @@ bool AP_Mission::write_cmd_to_storage(uint16_t index, const Mission_Command& cmd
         // for commands below 256 we store up to 12 bytes
         _storage.write_byte(pos_in_storage, cmd.id);
         _storage.write_uint16(pos_in_storage+1, cmd.p1);
-        _storage.write_block(pos_in_storage+3, packed.bytes, 12);
+        _storage.write_uint16(pos_in_storage+3, cmd.p2);
+        _storage.write_block(pos_in_storage+5, packed.bytes, 12);
     } else {
         // if the command ID is above 256 we store a tag byte followed
         // by the 16 bit command ID. The tag byte is 1 for commands
@@ -921,7 +924,8 @@ bool AP_Mission::write_cmd_to_storage(uint16_t index, const Mission_Command& cmd
         _storage.write_byte(pos_in_storage, tag_byte);
         _storage.write_uint16(pos_in_storage+1, cmd.id);
         _storage.write_uint16(pos_in_storage+3, cmd.p1);
-        _storage.write_block(pos_in_storage+5, packed.bytes, 10);
+        _storage.write_uint16(pos_in_storage+5, cmd.p2);
+        _storage.write_block(pos_in_storage+7, packed.bytes, 10);
     }
 
     // remember when the mission last changed
@@ -1028,6 +1032,7 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
 #else
         // delay at waypoint in seconds (this is for copters???)
         cmd.p1 = packet.param1;
+        cmd.p2 = packet.param2;
 #endif
     }
     break;

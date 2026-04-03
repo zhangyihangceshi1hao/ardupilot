@@ -1504,7 +1504,7 @@ void ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
     loiter_time = 0;
     // this is the delay, stored in seconds
     loiter_time_max = cmd.p1;
-
+    wp_nav->set_speed_xy(cmd.p2*100);
     // set next destination if necessary
     if (!set_next_wp(cmd, target_loc)) {
         // failure to set next destination can only be because of missing terrain data
