@@ -1511,14 +1511,14 @@ void ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
     // this will be used to remember the time in millis after we reach or pass the WP.
     loiter_time = 0;
     // this is the delay, stored in seconds
-    // loiter_time_max = cmd.p1;
+    loiter_time_max = 0;
     wp_nav->set_speed_xy(cmd.p1*100);
     bool relative = cmd.p4 & 0x01;
     int dir_code = (cmd.p4 >> 1) & 0x03;
 
-    int8_t direction = 1;
-    if (dir_code == 2) direction = -1;
-    
+    int8_t direction = 0;
+    if (dir_code == 1) direction = 1;
+    else if (dir_code == 2) direction = -1;
 
     auto_yaw.set_fixed_yaw(
         cmd.p2,        // angle
