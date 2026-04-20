@@ -359,14 +359,42 @@ void FD_CAN::loop() {
             _fan_ptr->update();
         }
 
-        if (_enable_mot.get()) {   
-            for (uint8_t i_mot = 0; i_mot < FD_CAN_MAX_MOT_NUM; i_mot++) { 
-                uint16_t mot_output = 0;
-                if (SRV_Channels::get_output_pwm(SRV_Channel::k_motor1, mot_output)) {
-                    ;
+        if (_enable_mot.get()) {
+            uint16_t pwm[4] = {};
+            SRV_Channels::get_output_pwm(SRV_Channel::k_motor1, pwm[0]);
+            SRV_Channels::get_output_pwm(SRV_Channel::k_motor2, pwm[1]);
+            SRV_Channels::get_output_pwm(SRV_Channel::k_motor3, pwm[2]);
+            SRV_Channels::get_output_pwm(SRV_Channel::k_motor4, pwm[3]);
+
+            if (AP_HAL::millis() - _last_mot_ms > 20) {
+                _last_mot_ms = AP_HAL::millis();
+
+                // group1: k_motor1控制电机1+2(bytes0-3), k_motor2控制电机3+4(bytes4-7)
+                // group2: k_motor3控制电机5+6(bytes0-3), k_motor4控制电机7+8(bytes4-7)
+                uint8_t data1[8], data2[8];
+
+                data1[0] = (uint8_t)((pwm[0] >> 8) & 0xFF);
+                data1[1] = (uint8_t)(pwm[0] & 0xFF);
+                data1[2] = (uint8_t)((pwm[0] >> 8) & 0xFF);
+                data1[3] = (uint8_t)(pwm[0] & 0xFF);
+                data1[4] = (uint8_t)((pwm[1] >> 8) & 0xFF);
+                data1[5] = (uint8_t)(pwm[1] & 0xFF);
+                data1[6] = (uint8_t)((pwm[1] >> 8) & 0xFF);
+                data1[7] = (uint8_t)(pwm[1] & 0xFF);
+
+                data2[0] = (uint8_t)((pwm[2] >> 8) & 0xFF);
+                data2[1] = (uint8_t)(pwm[2] & 0xFF);
+                data2[2] = (uint8_t)((pwm[2] >> 8) & 0xFF);
+                data2[3] = (uint8_t)(pwm[2] & 0xFF);
+                data2[4] = (uint8_t)((pwm[3] >> 8) & 0xFF);
+                data2[5] = (uint8_t)(pwm[3] & 0xFF);
+                data2[6] = (uint8_t)((pwm[3] >> 8) & 0xFF);
+                data2[7] = (uint8_t)(pwm[3] & 0xFF);
+
+                if (_mot_ptr[0] != nullptr) {
+                    _mot_ptr[0]->send_cmd(0x14661C27 | AP_HAL::CANFrame::FlagEFF, data1);
+                    _mot_ptr[0]->send_cmd(0x14671C27 | AP_HAL::CANFrame::FlagEFF, data2);
                 }
-                _mot_ptr[i_mot]->set_pwm(mot_output);
-                _mot_ptr[i_mot]->update();
             }
         }
 

@@ -158,75 +158,46 @@ void FD_MOT::set_id(uint8_t id_in)
     }
 }
 
-void FD_MOT::set_pwm(uint16_t pwm_in) // 1000~2000
-{
-    status.thr_in = pwm_in;
-}
+// void FD_MOT::set_pwm(uint16_t pwm_in) // 1000~2000
+// {
+//     status.thr_in = pwm_in;
+// }
 
-void FD_MOT::update()
-{
-    update_cmd();
-    update_status();
-}
+// void FD_MOT::update()
+// {
+//     update_cmd();
+//     update_status();
+// }
 
-void FD_MOT::update_status()
-{
-    // send mot cmd
-    {
-        if (AP_HAL::millis() - status.last_status_ms > 500) {
-            status.last_status_ms = AP_HAL::millis();
-        }
-    }
-}
+// void FD_MOT::update_status()
+// {
+//     if (AP_HAL::millis() - status.last_status_ms > 500) {
+//         status.last_status_ms = AP_HAL::millis();
+//     }
+// }
 
-void FD_MOT::update_cmd()
-{
-    // 修复: 添加 group 有效性检查
-    if (status.group < 1 || status.group > 4) {
-        return;  // group 无效，不发送命令
-    }
-
-    // send mot cmd
-    {
-        if (AP_HAL::millis() - status.last_mot_ms > 20) {
-            status.last_mot_ms = AP_HAL::millis();
-            uint16_t tmp_thr = status.thr_in;
-
-            _data[0] = 0xFF;
-            _data[1] = 0xFF;
-            _data[2] = 0xFF;
-            _data[3] = 0xFF;
-            _data[4] = 0xFF;
-            _data[5] = 0xFF;
-            _data[6] = 0xFF;
-            _data[7] = 0xFF;
-
-            switch(status.order) {
-            case 1:
-                _data[0] = (uint8_t)((tmp_thr >> 8) & 0xff);
-                _data[1] = (uint8_t)(tmp_thr & 0xff);
-                break;
-            case 2:
-                _data[2] = (uint8_t)((tmp_thr >> 8) & 0xff);
-                _data[3] = (uint8_t)(tmp_thr & 0xff);
-                break;
-            case 3:
-                _data[4] = (uint8_t)((tmp_thr >> 8) & 0xff);
-                _data[5] = (uint8_t)(tmp_thr & 0xff);
-                break;
-            case 4:
-                _data[6] = (uint8_t)((tmp_thr >> 8) & 0xff);
-                _data[7] = (uint8_t)(tmp_thr & 0xff);
-                break;
-            default:
-                return;  // order 无效，不发送
-            }
-
-            uint32_t target_addr = 0x14661C27 + ((status.group - 1) * 0x10000);
-            send_cmd(target_addr | AP_HAL::CANFrame::FlagEFF, _data);
-        }
-    }
-}
+// void FD_MOT::update_cmd()
+// {
+//     // 已废弃：油门聚合逻辑移至 FD_CAN::loop()，由FD_CAN统一发帧
+//     if (status.group < 1 || status.group > 4) {
+//         return;
+//     }
+//     if (AP_HAL::millis() - status.last_mot_ms > 20) {
+//         status.last_mot_ms = AP_HAL::millis();
+//         uint16_t tmp_thr = status.thr_in;
+//         _data[0] = 0xFF; _data[1] = 0xFF; _data[2] = 0xFF; _data[3] = 0xFF;
+//         _data[4] = 0xFF; _data[5] = 0xFF; _data[6] = 0xFF; _data[7] = 0xFF;
+//         switch(status.order) {
+//         case 1: _data[0] = (uint8_t)((tmp_thr >> 8) & 0xff); _data[1] = (uint8_t)(tmp_thr & 0xff); break;
+//         case 2: _data[2] = (uint8_t)((tmp_thr >> 8) & 0xff); _data[3] = (uint8_t)(tmp_thr & 0xff); break;
+//         case 3: _data[4] = (uint8_t)((tmp_thr >> 8) & 0xff); _data[5] = (uint8_t)(tmp_thr & 0xff); break;
+//         case 4: _data[6] = (uint8_t)((tmp_thr >> 8) & 0xff); _data[7] = (uint8_t)(tmp_thr & 0xff); break;
+//         default: return;
+//         }
+//         uint32_t target_addr = 0x14661C27 + ((status.group - 1) * 0x10000);
+//         send_cmd(target_addr | AP_HAL::CANFrame::FlagEFF, _data);
+//     }
+// }
 
 void FD_MOT::send_cmd(uint32_t id, uint8_t *data) {
     if (_frotend_ptr == nullptr) {return;}

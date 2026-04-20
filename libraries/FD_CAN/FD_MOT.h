@@ -18,10 +18,10 @@ public:
 
     void handle_info(AP_HAL::CANFrame &in_frame, bool do_print = false);
     void set_id(uint8_t id_in);
-    void set_pwm(uint16_t pwm_in);
-    void update();
-    void update_cmd();
-    void update_status();
+    // void set_pwm(uint16_t pwm_in);   // 已废弃，油门由FD_CAN::loop()统一管理
+    // void update();                    // 已废弃
+    // void update_cmd();                // 已废弃
+    // void update_status();             // 已废弃
     void send_cmd(uint32_t id, uint8_t *data);
     FD_CAN* _frotend_ptr;
 

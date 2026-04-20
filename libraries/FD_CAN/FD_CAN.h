@@ -97,6 +97,7 @@ private:
     bool read_frame(AP_HAL::CANFrame &recv_frame, uint64_t timeout);
 
     bool _initialized{false};
+    uint32_t _last_mot_ms{0};
     char _thread_name[16]{};
     uint8_t _driver_index{0};
     AP_HAL::CANIface* _can_iface{nullptr};
