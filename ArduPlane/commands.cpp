@@ -95,7 +95,8 @@ void Plane::set_guided_WP(const Location &loc)
 
     // disable crosstrack, head directly to the point
     auto_state.crosstrack = false;
-
+    //经过指点航点后，在盘旋标识
+    auto_state.pass_wp = true;
     // reset loiter start time.
     loiter.start_time_ms = 0;
 

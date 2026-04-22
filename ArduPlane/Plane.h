@@ -123,7 +123,7 @@
 #include "AP_Arming.h"
 #include "pullup.h"
 #include "systemid.h"
-
+#include <AP_Serial_LIDE/AP_Serial_LIDE.h>
 /*
   main APM:Plane class
  */
@@ -273,7 +273,7 @@ private:
 
     // selected navigation controller
     AP_Navigation *nav_controller = &L1_controller;
-
+    AP_Serial_LIDE serial_lide;
     // Camera
 #if AP_CAMERA_ENABLED
     AP_Camera camera{MASK_LOG_CAMERA};
@@ -550,6 +550,7 @@ private:
 
         // are we doing loiter mode as a VTOL?
         bool vtol_loiter;
+        bool pass_wp;
 
         // how much correction have we added for terrain data
         float terrain_correction;

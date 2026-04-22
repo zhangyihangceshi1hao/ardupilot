@@ -336,10 +336,10 @@ void Plane::update_loiter_update_nav(uint16_t radius)
     const bool quadplane_qrtl_switch = false;
 #endif
 
-    if ((loiter.start_time_ms == 0 &&
-         (control_mode == &mode_auto || control_mode == &mode_guided) &&
+if ((loiter.start_time_ms == 0 &&
+         (control_mode == &mode_auto) &&
          auto_state.crosstrack &&
-         current_loc.get_distance(next_WP_loc) > 3 * nav_controller->loiter_radius(radius)) ||
+         current_loc.get_distance(next_WP_loc) > radius*3) ||
         quadplane_qrtl_switch) {
         /*
           if never reached loiter point and using crosstrack and somewhat far away from loiter point
@@ -349,6 +349,25 @@ void Plane::update_loiter_update_nav(uint16_t radius)
           that is going to be switching to QRTL when it gets within
           RTL_RADIUS
         */
+        nav_controller->update_waypoint(prev_WP_loc, next_WP_loc);
+        return;
+    }
+    if ((loiter.start_time_ms == 0 &&
+         (control_mode == &mode_guided) &&
+         // auto_state.crosstrack &&
+         auto_state.pass_wp) ||
+        quadplane_qrtl_switch) {
+        /*
+          if never reached loiter point and using crosstrack and somewhat far away from loiter point
+          navigate to it like in auto-mode for normal crosstrack behavior
+
+          we also use direct waypoint navigation if we are a quadplane
+          that is going to be switching to QRTL when it gets within
+          RTL_RADIUS
+        */
+        if (current_loc.get_distance(next_WP_loc) < 10) {
+            auto_state.pass_wp = false;
+        }
         nav_controller->update_waypoint(prev_WP_loc, next_WP_loc);
         return;
     }

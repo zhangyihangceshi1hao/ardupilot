@@ -4161,7 +4161,6 @@ void GCS_MAVLINK::handle_heartbeat(const mavlink_message_t &msg) const
 void GCS_MAVLINK::handle_message(const mavlink_message_t &msg)
 {
     switch (msg.msgid) {
-
     case MAVLINK_MSG_ID_HEARTBEAT: {
         handle_heartbeat(msg);
         break;
@@ -4495,8 +4494,13 @@ void GCS_MAVLINK::handle_message(const mavlink_message_t &msg)
         break;
     }
 #endif
+    case MAVLINK_MSG_ID_LIDE_SERIAL_CONTROL:
+    {
+            handle_engine_control(msg);
+            break;
     }
-
+    
+    }
 }
 
 void GCS_MAVLINK::handle_common_mission_message(const mavlink_message_t &msg)
@@ -6048,7 +6052,40 @@ void GCS_MAVLINK::send_received_message_deprecation_warning(const char * message
 
     send_text(MAV_SEVERITY_INFO, "Received message (%s) is deprecated", message);
 }
+// 处理从地面站收到的砺德Serial控制命令消息到飞控 (ID: 13002)
+void GCS_MAVLINK::handle_engine_control(const mavlink_message_t &msg) const
+{
+    mavlink_lide_serial_control_t engine_control;
+    mavlink_msg_lide_serial_control_decode(&msg, &engine_control);
+    
+    // 使用全局实例（不需要知道driver_index）
+    // 获取唯一实例
+    AP_Serial_LIDE* lide_driver = AP_Serial_LIDE::get_singleton();
+    
+    if (lide_driver == nullptr) {
+        send_text(MAV_SEVERITY_WARNING, "未找到砺德Serial驱动");
+        return;
+    }
+      // 打印收到的MAVLink消息原始值
+    send_text(MAV_SEVERITY_DEBUG, "收到砺德Serial控制命令:");
+    send_text(MAV_SEVERITY_DEBUG, "油门请求: %u", engine_control.throttle_request);
+    send_text(MAV_SEVERITY_DEBUG, "海拔: %u米", engine_control.altitude);
+    send_text(MAV_SEVERITY_DEBUG, "空速: %u m/s", engine_control.airspeed);
+    send_text(MAV_SEVERITY_DEBUG, "控制命令字节: 0x%02X", engine_control.control_command);
+    send_text(MAV_SEVERITY_DEBUG, "预留1: %u", engine_control.reserved1);
+    send_text(MAV_SEVERITY_DEBUG, "预留2: %u", engine_control.reserved2);
 
+    
+    
+    lide_driver->set_cmd_controll( engine_control.control_command);
+    lide_driver->set_throttle( engine_control.throttle_request);
+    lide_driver->set_altitude( engine_control.altitude);
+    lide_driver->set_airspeed( engine_control.airspeed);
+    
+    
+    // 发送确认
+    send_text(MAV_SEVERITY_INFO, "控制命令已处理: 引擎" );
+}
 bool GCS_MAVLINK::try_send_message(const enum ap_message id)
 {
     bool ret = true;

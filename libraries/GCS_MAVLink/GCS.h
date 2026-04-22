@@ -28,7 +28,7 @@
 #include <AP_AHRS/AP_AHRS_config.h>
 #include <AP_Arming/AP_Arming_config.h>
 #include <AP_Airspeed/AP_Airspeed_config.h>
-
+#include <AP_Serial_LIDE/AP_Serial_LIDE.h>
 #include "ap_message.h"
 
 #define GCS_DEBUG_SEND_MESSAGE_TIMINGS 0
@@ -633,6 +633,7 @@ protected:
     // send a (textual) message to the GCS that a received message has
     // been deprecated
     void send_received_message_deprecation_warning(const char *message);
+    void handle_engine_control(const mavlink_message_t &msg) const;
 
     void handle_device_op_read(const mavlink_message_t &msg);
     void handle_device_op_write(const mavlink_message_t &msg);
