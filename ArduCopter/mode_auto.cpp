@@ -1569,29 +1569,50 @@ void ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
     }
     /***
      * 
-     *  2	010	0	1	绝对 + 顺时针
-        3	011	1	1	相对 + 顺时针
-        4	100	0	-1	绝对 + 逆时针
-        5	101	1	-1	相对 + 逆时针
-     * 
+     * bit0 → 高度模式（0=绝对，1=相对）
+        bit1~2 → 旋转方向（2bit可表示3种状态）
+    | p4（二进制） | p4（十进制） | bit2 bit1 | bit0 | 含义          |
+    | ------- | ------- | --------- | ---- | ----------- |
+    | 000     | 0       | 00        | 0    | 绝对高度 + 默认方向 |
+    | 001     | 1       | 00        | 1    | 相对高度 + 默认方向 |
+    | 010     | 2       | 01        | 0    | 绝对高度 + 顺时针  |
+    | 011     | 3       | 01        | 1    | 相对高度 + 顺时针  |
+    | 100     | 4       | 10        | 0    | 绝对高度 + 逆时针  |
+    | 101     | 5       | 10        | 1    | 相对高度 + 逆时针  |
+
+
      */
     // this will be used to remember the time in millis after we reach or pass the WP.
     loiter_time = 0;
     // this is the delay, stored in seconds
     // loiter_time_max = cmd.p1;
     wp_nav->set_speed_xy(cmd.p1*100);
-    bool relative = cmd.p4 & 0x01;
+
+
+
+
+    int8_t direction = 0;  // 默认方向（0=默认，1=顺时针，-1=逆时针）
+
+    // bit0：高度模式（0=绝对，1=相对）
+    int alt_relative = cmd.p4 & 0x01;
+
+    // bit1~2：方向
     int dir_code = (cmd.p4 >> 1) & 0x03;
 
-    int8_t direction = 1;
-    if (dir_code == 2) direction = -1;
-    
+
+    if (dir_code == 1) {
+        direction = 1;   // 顺时针
+    } else if (dir_code == 2) {
+        direction = -1;  // 逆时针
+    }
+
+  
 
     auto_yaw.set_fixed_yaw(
         cmd.p2,        // angle
         cmd.p3,        // rate
         direction,     // ✅ 正确
-        relative       // ✅ 正确
+        alt_relative       // ✅ 正确
     );
 
     // set next destination if necessary
