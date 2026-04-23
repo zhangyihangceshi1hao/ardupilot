@@ -41,7 +41,7 @@ bool AP_PPS_Serial::send_controller(int enable, int32_t frequency)
     
     // 先构造消息，然后再发送
     if (enable == 0) {
-        hal.util->snprintf(message, sizeof(message), "TX:Stop:%" PRId32 "\r\n", frequency);
+        hal.util->snprintf(message, sizeof(message), "TX:Abort:%" PRId32 "\r\n", frequency);
     } else if (enable == 1) {
         hal.util->snprintf(message, sizeof(message), "TX:Init:%" PRId32 "\r\n", frequency);
     } else {
