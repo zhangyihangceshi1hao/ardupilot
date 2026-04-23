@@ -139,79 +139,79 @@ void AP_Serial_LIDE::get_telem_data(mavlink_channel_t chan)
             // ================= 解析 =================
            uint8_t *p = &buffer[4];
 
-uint8_t system_status = p[0];
+            uint8_t system_status = p[0];
 
-uint16_t total_runtime     = (p[1] << 8) | p[2];
-uint16_t current_runtime   = (p[3] << 8) | p[4];
-uint16_t fuel_consumption  = (p[5] << 8) | p[6];
+            uint16_t total_runtime     = (p[1] << 8) | p[2];
+            uint16_t current_runtime   = (p[3] << 8) | p[4];
+            uint16_t fuel_consumption  = (p[5] << 8) | p[6];
 
-uint8_t fuel_rate = p[7];
+            uint8_t fuel_rate = p[7];
 
-uint16_t throttle_feedback = (p[8] << 8)  | p[9];
-uint16_t rpm               = (p[10] << 8) | p[11];
+            uint16_t throttle_feedback = (p[8] << 8)  | p[9];
+            uint16_t rpm               = (p[10] << 8) | p[11];
 
-uint8_t cht1 = p[12];
-uint8_t cht2 = p[13];
-uint8_t cht3 = p[14];
-uint8_t cht4 = p[15];
+            uint8_t cht1 = p[12];
+            uint8_t cht2 = p[13];
+            uint8_t cht3 = p[14];
+            uint8_t cht4 = p[15];
 
-uint8_t egt1 = p[16];
-uint8_t egt2 = p[17];
-uint8_t egt3 = p[18];
-uint8_t egt4 = p[19];
+            uint8_t egt1 = p[16];
+            uint8_t egt2 = p[17];
+            uint8_t egt3 = p[18];
+            uint8_t egt4 = p[19];
 
-uint8_t fuel_pressure_set    = p[20];
-uint8_t fuel_pressure_actual = p[21];
-uint8_t fuel_pump_rpm        = p[22];
+            uint8_t fuel_pressure_set    = p[20];
+            uint8_t fuel_pressure_actual = p[21];
+            uint8_t fuel_pump_rpm        = p[22];
 
-uint8_t rail_pressure_set    = p[23];
-uint8_t rail_pressure_actual = p[24];
+            uint8_t rail_pressure_set    = p[23];
+            uint8_t rail_pressure_actual = p[24];
 
-uint8_t throttle1_diff = p[25];
-uint8_t throttle1_pos  = p[26];
-uint8_t throttle2_diff = p[27];
-uint8_t throttle2_pos  = p[28];
+            uint8_t throttle1_diff = p[25];
+            uint8_t throttle1_pos  = p[26];
+            uint8_t throttle2_diff = p[27];
+            uint8_t throttle2_pos  = p[28];
 
-uint8_t voltage = p[29];
-uint8_t cooling1 = p[30];
-uint8_t cooling2 = p[31];
+            uint8_t voltage = p[29];
+            uint8_t cooling1 = p[30];
+            uint8_t cooling2 = p[31];
 
-uint16_t oil_consumption = (p[32] << 8) | p[33];
+            uint16_t oil_consumption = (p[32] << 8) | p[33];
 
-uint8_t adjust1 = p[34];
-uint8_t adjust2 = p[35];
-uint8_t adjust3 = p[36];
-uint8_t adjust4 = p[37];
+            uint8_t adjust1 = p[34];
+            uint8_t adjust2 = p[35];
+            uint8_t adjust3 = p[36];
+            uint8_t adjust4 = p[37];
 
-uint8_t intake_temp  = p[38];
-uint8_t env_pressure = p[39];
-uint8_t fuel_level   = p[40];
+            uint8_t intake_temp  = p[38];
+            uint8_t env_pressure = p[39];
+            uint8_t fuel_level   = p[40];
 
-uint8_t fault1 = p[41];
-uint8_t fault2 = p[42];
-uint8_t fault3 = p[43];
-uint8_t fault4 = p[44];
-uint8_t fault5 = p[45];
-uint8_t fault6 = p[46];
-uint8_t fault7 = p[47];
-uint8_t fault8 = p[48];
-            gcs().send_text(MAV_SEVERITY_WARNING, "system_status13: %u", system_status);
-            gcs().send_text(MAV_SEVERITY_WARNING, "total_runtime: %u", total_runtime);
-            gcs().send_text(MAV_SEVERITY_WARNING, "current_runtime: %u", current_runtime);
-            gcs().send_text(MAV_SEVERITY_WARNING, "fuel_consumption: %u", fuel_consumption);
-            gcs().send_text(MAV_SEVERITY_WARNING, "fuel_rate: %u", fuel_rate);
-            gcs().send_text(MAV_SEVERITY_WARNING, "throttle_feedback: %u", throttle_feedback);
-            gcs().send_text(MAV_SEVERITY_WARNING, "rpm: %u", rpm);
+            uint8_t fault1 = p[41];
+            uint8_t fault2 = p[42];
+            uint8_t fault3 = p[43];
+            uint8_t fault4 = p[44];
+            uint8_t fault5 = p[45];
+            uint8_t fault6 = p[46];
+            uint8_t fault7 = p[47];
+            uint8_t fault8 = p[48];
+            // gcs().send_text(MAV_SEVERITY_WARNING, "system_status13: %u", system_status);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "total_runtime: %u", total_runtime);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "current_runtime: %u", current_runtime);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "fuel_consumption: %u", fuel_consumption);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "fuel_rate: %u", fuel_rate);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "throttle_feedback: %u", throttle_feedback);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "rpm: %u", rpm);
 
-            gcs().send_text(MAV_SEVERITY_WARNING, "cht1: %u", cht1);
-            gcs().send_text(MAV_SEVERITY_WARNING, "cht2: %u", cht2);
-            gcs().send_text(MAV_SEVERITY_WARNING, "cht3: %u", cht3);
-            gcs().send_text(MAV_SEVERITY_WARNING, "cht4: %u", cht4);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "cht1: %u", cht1);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "cht2: %u", cht2);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "cht3: %u", cht3);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "cht4: %u", cht4);
 
-            gcs().send_text(MAV_SEVERITY_WARNING, "egt1: %u", egt1);
-            gcs().send_text(MAV_SEVERITY_WARNING, "egt2: %u", egt2);
-            gcs().send_text(MAV_SEVERITY_WARNING, "egt3: %u", egt3);
-            gcs().send_text(MAV_SEVERITY_WARNING, "egt4: %u", egt4);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "egt1: %u", egt1);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "egt2: %u", egt2);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "egt3: %u", egt3);
+            // gcs().send_text(MAV_SEVERITY_WARNING, "egt4: %u", egt4);
 
             // gcs().send_text(MAV_SEVERITY_WARNING, "fuel_pressure_set: %u", fuel_pressure_set);
             // gcs().send_text(MAV_SEVERITY_WARNING, "fuel_pressure_actual: %u", fuel_pressure_actual);
@@ -293,7 +293,7 @@ uint8_t fault8 = p[48];
             
            
 
-            gcs().send_text(MAV_SEVERITY_WARNING, "LIDE frame OK");
+            // gcs().send_text(MAV_SEVERITY_WARNING, "LIDE frame OK");
 
             // ❗关键：重新找下一帧（不要残留）
             index = 0;
