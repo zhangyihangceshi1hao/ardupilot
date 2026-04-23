@@ -6086,6 +6086,17 @@ void GCS_MAVLINK::handle_engine_control(const mavlink_message_t &msg) const
     // 发送确认
     send_text(MAV_SEVERITY_INFO, "控制命令已处理: 引擎" );
 }
+
+void GCS_MAVLINK::send_lide_info()
+{
+    AP_Serial_LIDE* lide_driver = AP_Serial_LIDE::get_singleton();
+    if (lide_driver == nullptr) {
+        send_text(MAV_SEVERITY_WARNING, "未找到砺德Serial驱动");
+        return;
+    }
+    lide_driver->get_telem_data(chan);
+}
+
 bool GCS_MAVLINK::try_send_message(const enum ap_message id)
 {
     bool ret = true;
@@ -6113,6 +6124,7 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
         CHECK_PAYLOAD_SIZE(HEARTBEAT);
         last_heartbeat_time = AP_HAL::millis();
         send_heartbeat();
+        send_lide_info();
         break;
 
     case MSG_HWSTATUS:
@@ -6151,7 +6163,6 @@ bool GCS_MAVLINK::try_send_message(const enum ap_message id)
     case MSG_NEXT_MISSION_REQUEST_FENCE:
         ret = try_send_mission_message(id);
         break;
-
 #if COMPASS_CAL_ENABLED
     case MSG_MAG_CAL_PROGRESS:
         ret = AP::compass().send_mag_cal_progress(*this);

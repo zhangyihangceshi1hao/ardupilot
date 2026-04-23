@@ -712,7 +712,7 @@ protected:
     // vehicle-overridable message send function
     virtual bool try_send_message(enum ap_message id);
     virtual void send_global_position_int();
-
+    void send_lide_info();
     // message sending functions:
     bool try_send_mission_message(enum ap_message id);
     void send_hwstatus();

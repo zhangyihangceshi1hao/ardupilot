@@ -73,7 +73,7 @@ void AP_Serial_LIDE::send_heartbeat_pck()
     // ===== 6. 打印日志 =====
     if (ret == sizeof(LIDE_Engine_Control_t))
     {
-        gcs().send_text(MAV_SEVERITY_DEBUG, "LIDE Engine PCK send OK");
+        // gcs().send_text(MAV_SEVERITY_DEBUG, "LIDE Engine PCK send OK");
     }
     else
     {
@@ -85,7 +85,7 @@ void AP_Serial_LIDE::send_heartbeat_pck()
 
 
 
-void AP_Serial_LIDE::get_telem_data()
+void AP_Serial_LIDE::get_telem_data(mavlink_channel_t chan)
 {
     if (_serial_port == nullptr) {
         return;
@@ -249,46 +249,49 @@ uint8_t fault8 = p[48];
             // gcs().send_text(MAV_SEVERITY_WARNING, "fault7: %u", fault7);
             // gcs().send_text(MAV_SEVERITY_WARNING, "fault8: %u", fault8);
             // ================= MAVLink =================
-            mavlink_msg_lide_engine_status_full_send(
-                MAVLINK_COMM_0,
-                system_status,
-                total_runtime,
-                current_runtime,
-                fuel_consumption,
-                fuel_rate,
-                throttle_feedback,
-                rpm,
-                cht1, cht2, cht3, cht4,
-                egt1, egt2, egt3, egt4,
-                fuel_pressure_set,
-                fuel_pressure_actual,
-                fuel_pump_rpm,
-                rail_pressure_set,
-                rail_pressure_actual,
-                throttle1_diff,
-                throttle1_pos,
-                throttle2_diff,
-                throttle2_pos,
-                voltage,
-                cooling1,
-                cooling2,
-                oil_consumption,
-                adjust1,
-                adjust2,
-                adjust3,
-                adjust4,
-                intake_temp,
-                env_pressure,
-                fuel_level,
-                fault1,
-                fault2,
-                fault3,
-                fault4,
-                fault5,
-                fault6,
-                fault7,
-                fault8
-            );
+            
+                mavlink_msg_lide_engine_status_full_send(
+                    chan,
+                    system_status,
+                    total_runtime,
+                    current_runtime,
+                    fuel_consumption,
+                    fuel_rate,
+                    throttle_feedback,
+                    rpm,
+                    cht1, cht2, cht3, cht4,
+                    egt1, egt2, egt3, egt4,
+                    fuel_pressure_set,
+                    fuel_pressure_actual,
+                    fuel_pump_rpm,
+                    rail_pressure_set,
+                    rail_pressure_actual,
+                    throttle1_diff,
+                    throttle1_pos,
+                    throttle2_diff,
+                    throttle2_pos,
+                    voltage,
+                    cooling1,
+                    cooling2,
+                    oil_consumption,
+                    adjust1,
+                    adjust2,
+                    adjust3,
+                    adjust4,
+                    intake_temp,
+                    env_pressure,
+                    fuel_level,
+                    fault1,
+                    fault2,
+                    fault3,
+                    fault4,
+                    fault5,
+                    fault6,
+                    fault7,
+                    fault8
+                );
+            
+           
 
             gcs().send_text(MAV_SEVERITY_WARNING, "LIDE frame OK");
 

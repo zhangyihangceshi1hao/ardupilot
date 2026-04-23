@@ -35,7 +35,7 @@ public:
     void init(const AP_SerialManager &serial_manager);
     void send_heartbeat_pck();
     bool send_controller(int enable, int32_t frequency);
-    void get_telem_data();
+    void get_telem_data(mavlink_channel_t chan);
 
       // ====== set 方法 ======
     void set_cmd_controll(uint8_t cmd);
