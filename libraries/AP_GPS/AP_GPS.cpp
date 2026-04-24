@@ -1366,7 +1366,19 @@ uint16_t AP_GPS::gps_yaw_cdeg(uint8_t instance) const
     }
     return yaw_cd;
 }
-
+// 在 AP_GPS.cpp 或合适的位置添加发送函数
+void AP_GPS::send_mavlink_gps_week_time(mavlink_channel_t chan)
+{
+  
+    uint16_t week =  time_week(0);        // 获取 GPS 周
+    uint32_t week_ms = time_week_ms(0)*(uint64_t)1000; // 获取周内毫秒
+    
+    mavlink_msg_gps_week_time_send(
+        chan,
+        week,
+        week_ms
+    );
+}
 void AP_GPS::send_mavlink_gps_raw(mavlink_channel_t chan)
 {
     const Location &loc = location(0);
