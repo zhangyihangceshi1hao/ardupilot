@@ -1371,7 +1371,7 @@ void AP_GPS::send_mavlink_gps_week_time(mavlink_channel_t chan)
 {
   
     uint16_t week =  time_week(0);        // 获取 GPS 周
-    uint32_t week_ms = time_week_ms(0)*(uint64_t)1000; // 获取周内毫秒
+    uint32_t week_ms = time_week_ms(0); // 获取周内毫秒
     
     mavlink_msg_gps_week_time_send(
         chan,
