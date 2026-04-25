@@ -369,27 +369,29 @@ void FD_CAN::loop() {
             if (AP_HAL::millis() - _last_mot_ms > 20) {
                 _last_mot_ms = AP_HAL::millis();
 
-                // group1: k_motor1控制电机1+2(bytes0-3), k_motor2控制电机3+4(bytes4-7)
-                // group2: k_motor3控制电机5+6(bytes0-3), k_motor4控制电机7+8(bytes4-7)
+                // k_motor1(右前)→电机3/4, k_motor2(左前)→电机1/2
+                // k_motor3(左后)→电机7/8, k_motor4(右后)→电机5/6
+                // group1: 电机1/2(bytes0-3)=k_motor2(左前), 电机3/4(bytes4-7)=k_motor1(右前)
+                // group2: 电机5/6(bytes0-3)=k_motor4(右后), 电机7/8(bytes4-7)=k_motor3(左后)
                 uint8_t data1[8], data2[8];
 
-                data1[0] = (uint8_t)((pwm[0] >> 8) & 0xFF);
-                data1[1] = (uint8_t)(pwm[0] & 0xFF);
-                data1[2] = (uint8_t)((pwm[0] >> 8) & 0xFF);
-                data1[3] = (uint8_t)(pwm[0] & 0xFF);
-                data1[4] = (uint8_t)((pwm[1] >> 8) & 0xFF);
-                data1[5] = (uint8_t)(pwm[1] & 0xFF);
-                data1[6] = (uint8_t)((pwm[1] >> 8) & 0xFF);
-                data1[7] = (uint8_t)(pwm[1] & 0xFF);
+                data1[0] = (uint8_t)((pwm[1] >> 8) & 0xFF);  // 电机1/2 = k_motor2(后右)
+                data1[1] = (uint8_t)(pwm[1] & 0xFF);
+                data1[2] = (uint8_t)((pwm[1] >> 8) & 0xFF);
+                data1[3] = (uint8_t)(pwm[1] & 0xFF);
+                data1[4] = (uint8_t)((pwm[0] >> 8) & 0xFF);  // 电机3/4 = k_motor1(前右)
+                data1[5] = (uint8_t)(pwm[0] & 0xFF);
+                data1[6] = (uint8_t)((pwm[0] >> 8) & 0xFF);
+                data1[7] = (uint8_t)(pwm[0] & 0xFF);
 
-                data2[0] = (uint8_t)((pwm[2] >> 8) & 0xFF);
-                data2[1] = (uint8_t)(pwm[2] & 0xFF);
-                data2[2] = (uint8_t)((pwm[2] >> 8) & 0xFF);
-                data2[3] = (uint8_t)(pwm[2] & 0xFF);
-                data2[4] = (uint8_t)((pwm[3] >> 8) & 0xFF);
-                data2[5] = (uint8_t)(pwm[3] & 0xFF);
-                data2[6] = (uint8_t)((pwm[3] >> 8) & 0xFF);
-                data2[7] = (uint8_t)(pwm[3] & 0xFF);
+                data2[0] = (uint8_t)((pwm[3] >> 8) & 0xFF);  // 电机5/6 = k_motor4(右后)
+                data2[1] = (uint8_t)(pwm[3] & 0xFF);
+                data2[2] = (uint8_t)((pwm[3] >> 8) & 0xFF);
+                data2[3] = (uint8_t)(pwm[3] & 0xFF);
+                data2[4] = (uint8_t)((pwm[2] >> 8) & 0xFF);  // 电机7/8 = k_motor3(左后)
+                data2[5] = (uint8_t)(pwm[2] & 0xFF);
+                data2[6] = (uint8_t)((pwm[2] >> 8) & 0xFF);
+                data2[7] = (uint8_t)(pwm[2] & 0xFF);
 
                 if (_mot_ptr[0] != nullptr) {
                     _mot_ptr[0]->send_cmd(0x14661C27 | AP_HAL::CANFrame::FlagEFF, data1);
