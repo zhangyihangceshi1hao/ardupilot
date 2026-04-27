@@ -127,14 +127,14 @@ void AP_Serial_LIDE::get_telem_data(mavlink_channel_t chan)
         if (index == LIDE_FRAME_LEN) {
 
             // ================= 打印验证 =================
-            for (int i = 0; i < LIDE_FRAME_LEN; i++) {
-                gcs().send_text(
-                    MAV_SEVERITY_WARNING,
-                    "[%02d] %02X",
-                    i,
-                    buffer[i]
-                );
-            }
+          //  for (int i = 0; i < LIDE_FRAME_LEN; i++) {
+             //   gcs().send_text(
+              //      MAV_SEVERITY_WARNING,
+              //      "[%02d] %02X",
+              //      i,
+              //      buffer[i]
+            //    );
+         //   }
 
             // ================= 解析 =================
            uint8_t *p = &buffer[4];
