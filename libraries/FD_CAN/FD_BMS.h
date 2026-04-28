@@ -21,7 +21,7 @@ public:
     void set_thr(int16_t thr_in);
     void update();
     void update_cmd();
-    void send_cmd(uint32_t id, uint8_t *data);
+    void send_cmd(uint32_t id, uint8_t *data, uint8_t data_length = 8);
     void set_switch(uint8_t switch_in);
     FD_CAN* _frotend_ptr{nullptr};  // 修复: 初始化为 nullptr
 

@@ -36,10 +36,10 @@ void FD_BMS::handle_info(AP_HAL::CANFrame &in_frame, bool do_print) {
 
         // 转换到MAVLink包
         // voltage: mV (millivolts)
-        AP::fd_data().battery_info_packet.voltage = (uint16_t)(status.Volt * 1000.0f);
+        AP::fd_data().battery_info_packet.voltage = (uint16_t)(status.Volt * 10.0f);
         
         // current: mA (milliamps)，int16_t类型，正放电负充电
-        AP::fd_data().battery_info_packet.current = (int16_t)(status.Curr * 1000.0f);
+        AP::fd_data().battery_info_packet.current = (int16_t)(status.Curr * 10.0f);
         
         // battery_remaining: 百分比
         AP::fd_data().battery_info_packet.battery_remaining = status.SOC;
@@ -99,42 +99,29 @@ void FD_BMS::update()
 // =====================================================
 void FD_BMS::set_switch(uint8_t switch_in)
 {
-    // 初始化数据帧
-    _data[0] = 0x02;  // 命令字节
-    _data[1] = 0x00;  // 默认断开
-    _data[2] = 0x00;
-    _data[3] = 0x00;
-    _data[4] = 0x00;
-    _data[5] = 0x00;
-    _data[6] = 0x00;
-    _data[7] = 0x00;
+    _data[0] = 0x02;
 
     if (switch_in == 0) {
-        // 断开命令
         _data[1] = 0x00;
         gcs().send_text(MAV_SEVERITY_INFO, "BMS: Sending POWER OFF command");
     }
     else if (switch_in == 1) {
-        // 闭合命令
         _data[1] = 0x01;
         gcs().send_text(MAV_SEVERITY_INFO, "BMS: Sending POWER ON command");
     }
     else {
-        return;  // 无效命令，不发送
+        return;
     }
 
-    // 标准帧ID: 0x102 (不带扩展帧标志)
-    uint32_t target_addr = 0x102;
-    send_cmd(target_addr, _data);
+    send_cmd(0x102, _data, 2);
 }
 
-void FD_BMS::send_cmd(uint32_t id, uint8_t *data) {
+void FD_BMS::send_cmd(uint32_t id, uint8_t *data, uint8_t data_length) {
     if (_frotend_ptr == nullptr) {return;}
-    const uint8_t data_length = 8;
     AP_HAL::CANFrame txFrame{};
     memcpy(txFrame.data, data, data_length);
-    txFrame.id = id;  // 标准帧，不需要设置FlagEFF
-    txFrame.dlc = 8;
+    txFrame.id = id;
+    txFrame.dlc = data_length;
     uint64_t timeout = AP_HAL::micros64() + 10000ULL;
     _frotend_ptr->write_frame(txFrame, timeout);
 }
