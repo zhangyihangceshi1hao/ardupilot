@@ -183,6 +183,8 @@ bool GCS_MAVLINK::init(uint8_t instance)
 
     // now change back to desired baudrate
     _port->begin(uartstate->baudrate());
+    _current_baudrate = uartstate->baudrate();
+    _last_baud_check_ms = 0;
 
     mavlink_comm_port[chan] = _port;
 
@@ -2005,6 +2007,21 @@ GCS_MAVLINK::update_receive(uint32_t max_time_us)
         try_send_message_stats.statustext_last_sent_ms = now16_ms;
     }
 #endif
+
+    // 每秒检测一次波特率参数是否被地面站修改，若有变化则重新配置串口
+    if (uartstate != nullptr && tnow - _last_baud_check_ms >= 1000) {
+        _last_baud_check_ms = tnow;
+        const uint32_t new_baud = uartstate->baudrate();
+        if (new_baud != _current_baudrate) {
+            gcs().send_text(MAV_SEVERITY_INFO,
+                            "Serial%u 波特率: %u -> %u",
+                            (unsigned)(chan - MAVLINK_COMM_0 + 1),
+                            (unsigned)_current_baudrate,
+                            (unsigned)new_baud);
+            _current_baudrate = new_baud;
+            _port->begin(new_baud);
+        }
+    }
 }
 
 #if HAL_LOGGING_ENABLED

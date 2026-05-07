@@ -1126,6 +1126,10 @@ private:
     // true if we should NOT do MAVLink on this port (usually because
     // someone's doing SERIAL_CONTROL over mavlink)
     bool _locked;
+
+    // 缓存波特率，用于运行时检测参数变化
+    uint32_t _current_baudrate;
+    uint32_t _last_baud_check_ms;
 };
 
 /// @class GCS
