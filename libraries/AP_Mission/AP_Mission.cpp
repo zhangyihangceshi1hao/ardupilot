@@ -1082,6 +1082,14 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
         // delay at waypoint in seconds (this is for copters???)
         cmd.p1 = packet.param1;
 #endif
+        // FW-GCS 切线展开标识 (geometric tangent expansion marker):
+        // 当 GCS 把"圆形 wp"展开为 entry/center/exit 三条 mission item 上传时，
+        // entry 和 exit 两条 NAV_WAYPOINT 用 param4 != 0 标记。
+        // 飞控本身对 NAV_WAYPOINT.param4 (yaw) 行为不变（也几乎不用），
+        // 这里持久化到 type_specific_bits bit0，供 GCS 下载折叠时识别使用。
+        if (!is_zero(packet.param4)) {
+            cmd.type_specific_bits |= (1U << 0);
+        }
     }
     break;
 
@@ -1612,6 +1620,10 @@ bool AP_Mission::mission_cmd_to_mavlink_int(const AP_Mission::Mission_Command& c
         // delay at waypoint in seconds
         packet.param1 = cmd.p1;
 #endif
+        // FW-GCS 切线展开标识回填（与 mavlink_int_to_mission_cmd 对称）
+        if (cmd.type_specific_bits & (1U << 0)) {
+            packet.param4 = 1.0f;
+        }
         break;
 
     case MAV_CMD_NAV_LOITER_UNLIM:                      // MAV ID: 17
