@@ -152,6 +152,11 @@
 #include <AP_Scripting/AP_Scripting.h>
 #endif
 
+#include <AP_Choreo/AP_Choreo_config.h>
+#if AP_CHOREO_ENABLED
+#include <AP_Choreo/AP_Choreo.h>
+#endif
+
 #if AC_CUSTOMCONTROL_MULTI_ENABLED
 #include <AC_CustomControl/AC_CustomControl.h>                  // Custom control library
 #endif
@@ -1079,6 +1084,10 @@ private:
     // mode.cpp
     Mode *mode_from_mode_num(const Mode::Number mode);
     void exit_mode(Mode *&old_flightmode, Mode *&new_flightmode);
+
+#if AP_CHOREO_ENABLED
+    AP_Choreo choreo;
+#endif
 
 public:
     void failsafe_check();      // failsafe.cpp

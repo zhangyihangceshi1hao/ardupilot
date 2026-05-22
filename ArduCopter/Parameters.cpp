@@ -727,6 +727,12 @@ const AP_Param::Info Copter::var_info[] = {
     // @Path: ../libraries/AP_Vehicle/AP_Vehicle.cpp
     PARAM_VEHICLE_INFO,
 
+#if AP_CHOREO_ENABLED
+    // @Group: CHOREO_
+    // @Path: ../libraries/AP_Choreo/AP_Choreo.cpp
+    GOBJECT(choreo, "CHOREO_", AP_Choreo),
+#endif
+
     AP_VAREND
 };
 

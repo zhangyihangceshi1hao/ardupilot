@@ -202,6 +202,10 @@ void Copter::init_ardupilot()
     vel_variance_filt.set_cutoff_frequency(g2.fs_ekf_filt_hz);
     hgt_variance_filt.set_cutoff_frequency(g2.fs_ekf_filt_hz);
 
+#if AP_CHOREO_ENABLED
+    choreo.init();
+#endif
+
     // flag that initialisation has completed
     ap.initialised = true;
 }
