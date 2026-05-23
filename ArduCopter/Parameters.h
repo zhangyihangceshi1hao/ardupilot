@@ -382,6 +382,8 @@ public:
         k_param_throw_altitude_min,
         k_param_throw_altitude_max,
 
+        k_param_choreo = 260, // AP_Choreo (drone show)
+
         // the k_param_* space is 9-bits in size
         // 511: reserved
     };
