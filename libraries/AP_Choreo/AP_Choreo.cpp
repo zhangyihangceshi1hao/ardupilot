@@ -38,11 +38,13 @@ AP_Choreo* AP_Choreo::_singleton = nullptr;
 // ============================================================================
 //  AP_Param 参数表
 //  ----------------------------------------------------------------------------
-//  暴露 9 个参数给 GCS（MissionPlanner / Qt GCS）调。命名 `CHOREO_*`，跟
+//  暴露 11 个参数给 GCS（MissionPlanner / Qt GCS）调。命名 `CHOREO_*`，跟
 //  master lua 方案的 `SCR_USER1..6` 不重叠，可同时存在不冲突。
 //
-//  注：AP_GROUPINFO 的第 2 个数字（0~8）是参数 idx，**永远不能改也不能复用**
+//  注：AP_GROUPINFO 的第 2 个数字（idx）是参数 idx，**永远不能改也不能复用**
 //  否则会破坏 GCS 端的参数 ID 映射（cached EEPROM 错乱）。
+//  现有占用：0=ENABLE 1=NONCE(废) 2=LEAD(废) 3=CYCLE 4=MLAT 5=MLON
+//          6=BASE_ALT 7=MIN_ALT 8=LOOP 9=T_HI 10=T_LO
 // ============================================================================
 const AP_Param::GroupInfo AP_Choreo::var_info[] = {
     // @Param: ENABLE
@@ -54,14 +56,14 @@ const AP_Param::GroupInfo AP_Choreo::var_info[] = {
     AP_GROUPINFO_FLAGS("ENABLE", 0, AP_Choreo, _enable, 0, AP_PARAM_FLAG_ENABLE),
 
     // @Param: NONCE
-    // @DisplayName: 同步扳机
-    // @Description: GCS 每按"⏱ 设同步起点"加 1。飞控检测变化后重新记起点
+    // @DisplayName: 同步扳机【已废弃】
+    // @Description: 旧方案的同步扳机，已被 CHOREO_T_HI/LO 取代。保留只为兼容 EEPROM
     // @User: Standard
     AP_GROUPINFO("NONCE",    1, AP_Choreo, _nonce,      0),
 
     // @Param: LEAD
-    // @DisplayName: 预热秒数
-    // @Description: 扣扳机到真正开演的缓冲时长（吸收 MAVLink 投递抖动）
+    // @DisplayName: 预热秒数【已废弃】
+    // @Description: 旧方案的预热秒，新方案 GCS 已把 lead 直接编进 target_usec
     // @Units: s
     // @User: Standard
     AP_GROUPINFO("LEAD",     2, AP_Choreo, _lead,       2.0f),
@@ -106,6 +108,21 @@ const AP_Param::GroupInfo AP_Choreo::var_info[] = {
     // @Values: 0:OneShot,1:Loop
     // @User: Standard
     AP_GROUPINFO("LOOP",     8, AP_Choreo, _loop,       1),
+
+    // @Param: T_HI
+    // @DisplayName: 目标 UTC 微秒高 32 位
+    // @Description: 5 架同点起跳的目标 UTC 时刻（微秒）的高 32 位。GCS 计算 target=now+lead，
+    //               然后拆成 (hi,lo) 一并发给所有飞机；T_HI 写入触发武装（必须最后写）。
+    //               (hi=0 && lo=0) 表示解武装
+    // @User: Standard
+    AP_GROUPINFO("T_HI",     9, AP_Choreo, _t_hi,       0),
+
+    // @Param: T_LO
+    // @DisplayName: 目标 UTC 微秒低 32 位
+    // @Description: 5 架同点起跳的目标 UTC 时刻（微秒）的低 32 位。GCS 必须先发 T_LO 再发 T_HI，
+    //               这样飞控在看到 T_HI 变化时 T_LO 已经就位
+    // @User: Standard
+    AP_GROUPINFO("T_LO",    10, AP_Choreo, _t_lo,       0),
 
     AP_GROUPEND
 };
@@ -169,60 +186,71 @@ bool AP_Choreo::_read_utc_now(uint64_t &utc_usec_out) const
 }
 
 // ============================================================================
-//  _check_arm() —— 扣扳机检测 + 双轨记起点（docs/TIME_SYNC.md 第四节）
+//  _check_arm() —— 扣扳机检测 + 同步武装（docs/TIME_SYNC.md 第四节）
 //  ----------------------------------------------------------------------------
-//  每个 50Hz tick 都调一次。逻辑：
-//    1. 看 _nonce 跟 _last_seen_nonce 有没有变
-//    2. 没变 → 直接返回（不重复武装）
-//    3. 变了：
-//         nonce ≤ 0 → 解武装（_arm_* 清零）
-//         nonce > 0 → 同时记 _arm_utc_usec（GPS UTC + LEAD）
-//                     和 _arm_millis  （本机 millis + LEAD）作双轨起点
+//  新方案（NONCE → T_HI/T_LO）的核心改动：
+//    旧方案：GCS 发 CHOREO_NONCE++ 触发，飞控本地 _arm_utc_usec = now + LEAD
+//            → 5 架收到 PARAM_SET 的时刻不同（UDP 抖动 + 串发延迟），
+//              各机 _arm_utc_usec 互相差几十到几百毫秒，起跳点对不齐。
 //
-//  为什么双轨？详见 docs/TIME_SYNC.md 第四-五节：
-//    - GPS 锁定时跨架精度 < 1μs（卫星原子钟）
-//    - GPS 失锁兜底 ~10ms（millis 抖动 + 晶振漂移）
-//    - 两套起点同时记，运行时 _elapsed_s() 自动选哪条路径
+//    新方案：GCS 端算好 target_utc_usec = now + lead，拆成 (T_HI, T_LO) 两个
+//            int32 一并发给 5 架；飞控收到后都用同一个 target_usec 当
+//            _arm_utc_usec → PARAM_SET 到达时差完全不影响起跳精度。
+//
+//  逻辑：
+//    1. 看 (T_HI, T_LO) 跟上次缓存的有没有变
+//    2. 没变 → 直接返回
+//    3. 变了：
+//         (0, 0) → 解武装（_arm_* 清零）
+//         非 0   → target_usec = (uint64(uint32(T_HI)) << 32) | uint32(T_LO)
+//                  _arm_utc_usec = target_usec        （不再 +LEAD）
+//                  _arm_millis 用"距 target 还有多少 ms"算兜底起点
+//
+//  跨架精度：
+//    - 共用同一 target_usec，跨架同步 < 1μs（受限于各机 GPS UTC 误差）
+//    - GPS 失锁退 millis 路径，~10ms（millis 抖动 + 晶振漂移）
 // ============================================================================
 void AP_Choreo::_check_arm()
 {
-    int32_t nonce = _nonce.get();
-    if (nonce == _last_seen_nonce) {
+    const int32_t hi = _t_hi.get();
+    const int32_t lo = _t_lo.get();
+    if (hi == _last_t_hi && lo == _last_t_lo) {
         // 没变化，啥也不做
         return;
     }
-    _last_seen_nonce = nonce;
+    _last_t_hi = hi;
+    _last_t_lo = lo;
 
-    if (nonce <= 0) {
-        // GCS 写 nonce=0 表示"取消武装"
+    if (hi == 0 && lo == 0) {
+        // GCS 写 (0,0) 表示"取消武装"
         _arm_utc_usec = 0;
         _arm_millis   = 0;
         _started      = false;
         return;
     }
 
-    // 同时计算两种单位的 lead 偏移
-    const uint32_t lead_ms    = uint32_t(_lead.get() * 1000.0f);
-    const uint64_t lead_usec  = uint64_t(_lead.get() * 1e6f);
+    // 拼回 64 位目标 UTC 微秒。注意必须先 cast 到 uint32_t 避免负数符号扩展
+    const uint64_t target_usec =
+        (uint64_t(uint32_t(hi)) << 32) | uint32_t(lo);
 
-    // ① 尝试用 GPS UTC 当主时间源
-    uint64_t utc;
-    if (_read_utc_now(utc)) {
-        _arm_utc_usec = utc + lead_usec;
-        gcs().send_text(MAV_SEVERITY_INFO,
-            "AP_Choreo: armed nonce=%ld UTC source (lead=%.1fs)",
-            (long)nonce, (double)_lead.get());
+    // 5 架统一用 GCS 算好的 target_usec，不再各自 +LEAD
+    _arm_utc_usec = target_usec;
+
+    // millis 兜底：算"距 target 还有多少 ms"加到当前 millis
+    // —— 这样即使中途 GPS 丢锁，_elapsed_s() 退到 millis 路径仍能近似对齐
+    uint64_t utc_now;
+    if (_read_utc_now(utc_now) && target_usec > utc_now) {
+        const uint64_t delta_usec = target_usec - utc_now;
+        _arm_millis = AP_HAL::millis() + uint32_t(delta_usec / 1000ULL);
     } else {
-        // GPS 没锁，UTC 不可用 → 只走 millis 路径
-        _arm_utc_usec = 0;
-        gcs().send_text(MAV_SEVERITY_INFO,
-            "AP_Choreo: armed nonce=%ld millis source (lead=%.1fs)",
-            (long)nonce, (double)_lead.get());
+        // GPS 没锁，无法算偏移；只能靠 UTC 路径
+        _arm_millis = 0;
     }
+    _started = false;   // 重置 START banner 标志，让重新演出能再发一次
 
-    // ② millis 起点永远记一份作兜底（即使有 UTC 也记，万一中演 GPS 丢能切换）
-    _arm_millis = AP_HAL::millis() + lead_ms;
-    _started    = false;   // 重置 START banner 标志，让重新演出能再发一次
+    gcs().send_text(MAV_SEVERITY_INFO,
+        "AP_Choreo: armed target_utc=%llu (T_HI=%ld T_LO=%ld)",
+        (unsigned long long)target_usec, (long)hi, (long)lo);
 }
 
 // ============================================================================
@@ -399,7 +427,7 @@ bool AP_Choreo::_sample_at_t_norm(float t_norm,
 //
 //    (1) GUIDED 检查         —— 不在 GUIDED 不发位置目标
 //    (2) 高度检查             —— 飞机得爬过 MIN_ALT 才开演
-//    (3) Nonce 触发检测       —— GCS 写 CHOREO_NONCE 触发武装
+//    (3) T_HI/LO 触发检测     —— GCS 写 CHOREO_T_HI/T_LO 触发武装
 //    (4) 计算 elapsed_s       —— 自动选 UTC 或 millis
 //    (5) START 横幅           —— 第一次进 RUNNING 发一条 STATUSTEXT
 //    (6) 算 t_norm            —— elapsed/cycle 后 mod 1（或 clamp 1）

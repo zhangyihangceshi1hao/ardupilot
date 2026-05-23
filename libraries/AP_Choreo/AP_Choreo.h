@@ -12,7 +12,7 @@
 //      │  50 Hz update():                                             │
 //      │    1) 看 mode == GUIDED？                                    │
 //      │    2) 高度 ≥ MIN_ALT？                                       │
-//      │    3) check_arm()：CHOREO_NONCE 变化 → 双轨记起点            │
+//      │    3) check_arm()：CHOREO_T_HI/LO 变化 → 双轨记起点          │
 //      │    4) elapsed_s = (now - arm) ← UTC 主、millis 兜底          │
 //      │    5) t_norm = (elapsed/cycle) mod 1                         │
 //      │    6) 采样航点 → 算 absolute Location → set_target_location  │
@@ -109,14 +109,16 @@ private:
 
     // ============== 参数（暴露给 GCS / MissionPlanner 调） ==============
     AP_Int8  _enable;        // CHOREO_ENABLE       0=禁用 1=启用
-    AP_Int32 _nonce;         // CHOREO_NONCE        同步扳机（GCS 每次按 ++）
-    AP_Float _lead;          // CHOREO_LEAD         预热秒（默认 2s）
+    AP_Int32 _nonce;         // CHOREO_NONCE        【已废弃】保留兼容 EEPROM，_check_arm 不再用
+    AP_Float _lead;          // CHOREO_LEAD         【已废弃】保留兼容 EEPROM，lead 已编进 T_HI/LO
     AP_Float _cycle;         // CHOREO_CYCLE        一圈秒数（默认 10s）
     AP_Float _master_lat;    // CHOREO_MLAT         主机 lat 度（type='N' 用）
     AP_Float _master_lon;    // CHOREO_MLON         主机 lng 度
     AP_Float _base_alt;      // CHOREO_BASE_ALT     基准高度补偿米（加到每帧 z 上）
     AP_Float _min_alt;       // CHOREO_MIN_ALT      最低开演高度米（默认 3m）
     AP_Int8  _loop;          // CHOREO_LOOP         0=单次跑完停 1=循环
+    AP_Int32 _t_hi;          // CHOREO_T_HI         目标 UTC 微秒高 32 位（写入触发武装）
+    AP_Int32 _t_lo;          // CHOREO_T_LO         目标 UTC 微秒低 32 位
 
     // ============== 状态机 ==============
     enum class State : uint8_t {
@@ -126,7 +128,9 @@ private:
         RUNNING         // 表演中
     } _state = State::IDLE;
 
-    int32_t  _last_seen_nonce = -1;     // 上次看到的 nonce 值（变了才触发 _check_arm 重新记起点）
+    int32_t  _last_seen_nonce = -1;     // 【deprecated】旧版 nonce 缓存，不再使用
+    int32_t  _last_t_hi = 0;            // 上次看到的 T_HI（变了才重新武装）
+    int32_t  _last_t_lo = 0;            // 上次看到的 T_LO
 
     // ============== Option B 双轨时间源（docs/TIME_SYNC.md） ==============
     uint64_t _arm_utc_usec = 0;        // GPS UTC 起点（主），微秒
@@ -157,9 +161,10 @@ private:
     //   都没有时返 false（调用方会自动用 millis 路径）
     bool  _read_utc_now(uint64_t &utc_usec_out) const;
 
-    // 检查 CHOREO_NONCE 变化并触发武装
-    //   nonce 变了 → 记 _arm_utc_usec + _arm_millis 双起点
-    //   nonce ≤ 0 → 解武装（_arm_* 清零）
+    // 检查 CHOREO_T_HI/LO 变化并触发武装
+    //   T_HI/LO 变了 → 把 (T_HI<<32 | T_LO) 当目标 UTC 微秒 → _arm_utc_usec
+    //   T_HI=T_LO=0 → 解武装（_arm_* 清零）
+    //   注：GCS 端已经把 lead 提前编进 target_usec，飞控这里不再 +LEAD
     void  _check_arm();
 
     // 算自起点以来已经过去多少秒
