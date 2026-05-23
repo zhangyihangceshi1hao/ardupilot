@@ -728,6 +728,9 @@ const AP_Param::Info Copter::var_info[] = {
     PARAM_VEHICLE_INFO,
 
 #if AP_CHOREO_ENABLED
+    // 把 AP_Choreo 类的 9 个参数（var_info[]）挂到 CHOREO_* 前缀下
+    // MissionPlanner / Qt GCS 看到 CHOREO_ENABLE / CHOREO_NONCE / CHOREO_LEAD ...
+    // @Path 指定 metadata 提取路径（参数文档生成器用）
     // @Group: CHOREO_
     // @Path: ../libraries/AP_Choreo/AP_Choreo.cpp
     GOBJECT(choreo, "CHOREO_", AP_Choreo),

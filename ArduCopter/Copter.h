@@ -152,6 +152,10 @@
 #include <AP_Scripting/AP_Scripting.h>
 #endif
 
+// ---- AP_Choreo（无人机表演舞步执行库）集成 ------------------------------------
+// 先 include config.h 拿到 AP_CHOREO_ENABLED 宏（默认 1），再条件包含主头
+// 跟其它 #if FEATURE_ENABLED 风格保持一致，不开时彻底不进入符号
+// 详见 libraries/AP_Choreo/ + docs/FIRMWARE_PLAN.md
 #include <AP_Choreo/AP_Choreo_config.h>
 #if AP_CHOREO_ENABLED
 #include <AP_Choreo/AP_Choreo.h>
@@ -1086,6 +1090,8 @@ private:
     void exit_mode(Mode *&old_flightmode, Mode *&new_flightmode);
 
 #if AP_CHOREO_ENABLED
+    // 无人机表演舞步执行模块（单例存在 Copter 内）
+    // 通过 AP::choreo() 也能取到，但本 Copter 实例直接持有更直观
     AP_Choreo choreo;
 #endif
 

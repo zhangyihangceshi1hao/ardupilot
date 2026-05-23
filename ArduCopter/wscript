@@ -28,6 +28,9 @@ def build(bld):
             'AC_AutoTune',
             'AP_KDECAN',
             'AP_SurfaceDistance',
+            # AP_Choreo: 无人机表演舞步执行库 (lua → C++ 迁移)
+            # 把它加进 use_libraries 列表，让 waf 编 ArduCopter 时也编这个库
+            # 实际是否编进固件还由 AP_CHOREO_ENABLED 宏控制（默认 1）
             'AP_Choreo',
         ],
     )

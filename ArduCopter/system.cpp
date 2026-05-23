@@ -203,6 +203,9 @@ void Copter::init_ardupilot()
     hgt_variance_filt.set_cutoff_frequency(g2.fs_ekf_filt_hz);
 
 #if AP_CHOREO_ENABLED
+    // AP_Choreo 启动初始化：读 /APM/choreo.csv 装航点到内部 _wps[]
+    // 必须在 EKF/GPS/AHRS 都已经 init 完之后才调
+    // 失败不致命：CSV 不存在时 _num_wps=0，主循环空转，可后续 MAVFTP 传完再重启
     choreo.init();
 #endif
 

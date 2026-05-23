@@ -260,6 +260,9 @@ const AP_Scheduler::Task Copter::scheduler_tasks[] = {
     SCHED_TASK_CLASS(AP_Button,            &copter.button,              update,           5, 100, 168),
 #endif
 #if AP_CHOREO_ENABLED
+    // AP_Choreo 主循环：50Hz，预算 75μs，task_id=171（避开前面已用 168）
+    // 在 GUIDED 模式 + 高度达标时，按 CSV 航点 + 时间相位下发 set_target_location
+    // 详见 libraries/AP_Choreo/AP_Choreo.cpp::update()
     SCHED_TASK_CLASS(AP_Choreo,            &copter.choreo,              update,          50,  75, 171),
 #endif
 };

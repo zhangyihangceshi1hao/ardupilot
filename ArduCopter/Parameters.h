@@ -382,6 +382,9 @@ public:
         k_param_throw_altitude_min,
         k_param_throw_altitude_max,
 
+        // AP_Choreo（无人机表演舞步）参数 ID = 260
+        // 注：ArduPilot 用 9-bit (0-511) 范围唯一 ID 跟 EEPROM 偏移挂钩，
+        // 一旦定下来**永远不能改也不能删**，否则升级固件会让用户参数错位
         k_param_choreo = 260, // AP_Choreo (drone show)
 
         // the k_param_* space is 9-bits in size
