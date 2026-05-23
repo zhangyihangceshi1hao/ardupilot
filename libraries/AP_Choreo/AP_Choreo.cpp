@@ -429,6 +429,8 @@ bool AP_Choreo::_sample_at_t_norm(float t_norm,
 //    (2) 高度检查             —— 飞机得爬过 MIN_ALT 才开演
 //    (3) T_HI/LO 触发检测     —— GCS 写 CHOREO_T_HI/T_LO 触发武装
 //    (4) 计算 elapsed_s       —— 自动选 UTC 或 millis
+//                                 返负 → ARMED_WAIT，飞 waypoint[0] 悬停 +
+//                                 LED 进入第一帧（倒计时阶段先就位）
 //    (5) START 横幅           —— 第一次进 RUNNING 发一条 STATUSTEXT
 //    (6) 算 t_norm            —— elapsed/cycle 后 mod 1（或 clamp 1）
 //    (7) 采样目标             —— 在 t_norm 处插值得 (位置 + RGB)
@@ -488,6 +490,19 @@ void AP_Choreo::update()
     const float elapsed_s = _elapsed_s();
     if (elapsed_s < 0) {
         _state = State::ARMED_WAIT;
+        // ARMED_WAIT 期间：飞到 waypoint[0] 悬停 + LED 提前进入第一帧
+        // 这样观众在倒计时阶段就能看到 5 架在最终起演位置和颜色上待命
+        AbsPos abs;
+        uint8_t R = 0, G = 0, B = 0;
+        if (_sample_at_t_norm(0.0f, abs, R, G, B)) {
+            Location t{};
+            t.lat = abs.lat_1e7;
+            t.lng = abs.lng_1e7;
+            t.set_alt_cm(int32_t((abs.up_m + _base_alt.get()) * 100.0f),
+                         Location::AltFrame::ABOVE_HOME);
+            vehicle->set_target_location(t);
+            _drive_led(R, G, B);
+        }
         return;
     }
 

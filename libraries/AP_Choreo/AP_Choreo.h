@@ -14,6 +14,7 @@
 //      │    2) 高度 ≥ MIN_ALT？                                       │
 //      │    3) check_arm()：CHOREO_T_HI/LO 变化 → 双轨记起点          │
 //      │    4) elapsed_s = (now - arm) ← UTC 主、millis 兜底          │
+//      │       返负 → ARMED_WAIT，飞 waypoint[0] 悬停 + LED 进入第一帧 │
 //      │    5) t_norm = (elapsed/cycle) mod 1                         │
 //      │    6) 采样航点 → 算 absolute Location → set_target_location  │
 //      │    7) 同步驱动 NeoPixel + 上报 NAMED_VALUE_FLOAT(LED_RGB)    │
