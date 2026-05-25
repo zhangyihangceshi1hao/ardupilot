@@ -38,13 +38,13 @@ AP_Choreo* AP_Choreo::_singleton = nullptr;
 // ============================================================================
 //  AP_Param 参数表
 //  ----------------------------------------------------------------------------
-//  暴露 11 个参数给 GCS（MissionPlanner / Qt GCS）调。命名 `CHOREO_*`，跟
+//  暴露 12 个参数给 GCS（MissionPlanner / Qt GCS）调。命名 `CHOREO_*`，跟
 //  master lua 方案的 `SCR_USER1..6` 不重叠，可同时存在不冲突。
 //
 //  注：AP_GROUPINFO 的第 2 个数字（idx）是参数 idx，**永远不能改也不能复用**
 //  否则会破坏 GCS 端的参数 ID 映射（cached EEPROM 错乱）。
 //  现有占用：0=ENABLE 1=NONCE(废) 2=LEAD(废) 3=CYCLE 4=MLAT 5=MLON
-//          6=BASE_ALT 7=MIN_ALT 8=LOOP 9=T_HI 10=T_LO
+//          6=BASE_ALT 7=MIN_ALT 8=LOOP 9=T_HI 10=T_LO 11=LOOP_NUM
 // ============================================================================
 const AP_Param::GroupInfo AP_Choreo::var_info[] = {
     // @Param: ENABLE
@@ -123,6 +123,13 @@ const AP_Param::GroupInfo AP_Choreo::var_info[] = {
     //               这样飞控在看到 T_HI 变化时 T_LO 已经就位
     // @User: Standard
     AP_GROUPINFO("T_LO",    10, AP_Choreo, _t_lo,       0),
+
+    // @Param: LOOP_NUM
+    // @DisplayName: 循环次数限制
+    // @Description: 0=不限制（受 CHOREO_LOOP 控制）；>=1=强制飞 N 次后停在最后一帧
+    // @Range: 0 127
+    // @User: Standard
+    AP_GROUPINFO("LOOP_NUM", 11, AP_Choreo, _loop_num,   0),
 
     AP_GROUPEND
 };
@@ -464,6 +471,8 @@ bool AP_Choreo::_sample_at_t_norm(float t_norm,
 //                                 LED 进入第一帧（倒计时阶段先就位）
 //    (5) START 横幅           —— 第一次进 RUNNING 发一条 STATUSTEXT
 //    (6) 算 t_norm            —— elapsed/cycle 后 mod 1（或 clamp 1）
+//                                 CHOREO_LOOP_NUM>0 时强制 N 圈后 clamp 1，
+//                                 覆盖 CHOREO_LOOP 设置（优先级最高）
 //    (7) 采样目标             —— 在 t_norm 处插值得 (位置 + RGB)
 //    (8) 下发绝对 Location    —— 用 set_target_location() 飞控自闭环
 //    (9) LED 驱动 + 上报      —— NeoPixel + Notify + GCS 回报
@@ -569,11 +578,20 @@ void AP_Choreo::update()
     // cycle <= 0 时用默认 10s 防除零
     const float cycle_s = (_cycle.get() > 0.1f) ? _cycle.get() : 10.0f;
     float t_norm = elapsed_s / cycle_s;
-    if (_loop.get()) {
-        // LOOP 模式：mod 1 永远循环
+
+    // CHOREO_LOOP_NUM > 0 时强制 N 次后停，覆盖 LOOP 设置（优先级最高）
+    //   语义：飞到 elapsed >= N*cycle 就 clamp 1.0 停在最后一帧
+    //         (即使 CHOREO_LOOP=1 也只飞 N 圈不再继续循环)
+    //   LOOP_NUM = 0 时跳过本分支，走旧行为
+    const int loop_num = _loop_num.get();
+    if (loop_num > 0 && t_norm >= float(loop_num)) {
+        // 已飞够 N 圈，t_norm 锁定 1.0 停在最后一帧
+        t_norm = 1.0f;
+    } else if (_loop.get()) {
+        // LOOP=1 且 LOOP_NUM=0：无限循环 (旧行为)
         t_norm -= floorf(t_norm);              // wrap 到 [0,1)
     } else if (t_norm > 1.0f) {
-        // ONESHOT 模式：跑完停在最后一帧
+        // LOOP=0 且 LOOP_NUM=0：ONESHOT 跑完停最后一帧 (旧行为)
         t_norm = 1.0f;
     }
 

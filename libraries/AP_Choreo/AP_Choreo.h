@@ -131,6 +131,10 @@ private:
     AP_Int32 _t_hi;          // CHOREO_T_HI 【已废弃】仅保留 EEPROM 兼容（idx 9），不再读取
     AP_Int32 _t_lo;          // CHOREO_T_LO 【已废弃】仅保留 EEPROM 兼容（idx 10），不再读取
                              // —— 同步扳机改走 COMMAND_INT MAV_CMD_USER_1（bit-preserve int32）
+    AP_Int8  _loop_num;      // CHOREO_LOOP_NUM     循环次数限制 (idx 11)
+                             //   = 0  无限制，受 CHOREO_LOOP 控制（保持旧行为）
+                             //   >= 1 强制飞 N 次后 t_norm 锁定 1.0 停在最后一帧
+                             //        覆盖 CHOREO_LOOP 设置（即使 LOOP=1 也只飞 N 圈）
 
     // ============== COMMAND_INT 武装暂存（handle_command_int_packet 写入 → _check_arm 消费）==============
     uint64_t _pending_target_usec = 0;  // 上一次 COMMAND_INT 携带的 target UTC 微秒
