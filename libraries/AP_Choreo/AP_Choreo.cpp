@@ -453,7 +453,7 @@ bool AP_Choreo::_sample_at_t_norm(float t_norm,
 // ============================================================================
 //  update() —— 50 Hz 主循环（核心）
 //  ----------------------------------------------------------------------------
-//  由 ArduCopter scheduler 每 20ms 调一次。9 个步骤：
+//  由 ArduCopter scheduler 每 20ms 调一次。10 个步骤：
 //
 //    (1) GUIDED 检查         —— 不在 GUIDED 不发位置目标
 //    (2) 高度检查             —— 飞机得爬过 MIN_ALT 才开演
@@ -467,6 +467,7 @@ bool AP_Choreo::_sample_at_t_norm(float t_norm,
 //    (7) 采样目标             —— 在 t_norm 处插值得 (位置 + RGB)
 //    (8) 下发绝对 Location    —— 用 set_target_location() 飞控自闭环
 //    (9) LED 驱动 + 上报      —— NeoPixel + Notify + GCS 回报
+//   (10) 1Hz 推 CHOREO_ST 状态给 GCS —— 地面站 DroneTable 行底色用
 //
 //  设计原则：
 //    - 每步早返回（fail-fast），不在错误状态做后续工作
@@ -583,6 +584,23 @@ void AP_Choreo::update()
     const uint32_t now_ms = AP_HAL::millis();
     _drive_led(R, G, B);                  // 实时驱动硬件 LED
     _report_led(now_ms, R, G, B);          // 5Hz 推 NAMED_VALUE_FLOAT 给 GCS
+
+    // ============= (10) 1Hz 推 CHOREO_ST 状态码给 GCS（DroneTable 行底色用）=============
+    //   0 = IDLE/WAIT_ALT (蓝) / 1 = ARMED_WAIT (黄) / 2 = RUNNING (绿)
+    // 不要在 _state != RUNNING 时跳过——必须每秒都推一次，让地面站知道
+    // 飞控在线且当前不在 RUNNING（这样它能保持蓝色，否则刚演完地面站还
+    // 会显示绿）。注：本调用在 RUNNING 路径末尾；非 RUNNING 分支在前面
+    // 已 early-return，由地面站靠 connected 判定与 mode 显示兜底。
+    static uint32_t s_last_st_ms = 0;
+    const uint32_t now_ms_st = AP_HAL::millis();
+    if (now_ms_st - s_last_st_ms >= 1000) {
+        s_last_st_ms = now_ms_st;
+        float st_val = 0.0f;
+        if (_state == State::RUNNING)         st_val = 2.0f;
+        else if (_state == State::ARMED_WAIT) st_val = 1.0f;
+        else                                  st_val = 0.0f;  // IDLE/WAIT_ALT
+        gcs().send_named_float("CHOREO_ST", st_val);
+    }
 }
 
 // ----------------------------------------------------------------------------
