@@ -12,7 +12,7 @@
 //      │  50 Hz update():                                             │
 //      │    1) 看 mode == GUIDED？                                    │
 //      │    2) 高度 ≥ MIN_ALT？                                       │
-//      │    3) check_arm()：CHOREO_T_HI/LO 变化 → 双轨记起点          │
+//      │    3) check_arm()：COMMAND_INT MAV_CMD_USER_1 触发 → 双轨记起点│
 //      │    4) elapsed_s = (now - arm) ← UTC 主、millis 兜底          │
 //      │       返负 → ARMED_WAIT，飞 waypoint[0] 悬停 + LED 进入第一帧 │
 //      │    5) t_norm = (elapsed/cycle) mod 1                         │
@@ -48,6 +48,7 @@
 #include <AP_Param/AP_Param.h>          // AP_Float/AP_Int8 等参数类
 #include <AP_Math/AP_Math.h>            // Vector3f, is_zero, constrain_*
 #include <AP_Common/Location.h>         // Location 类，绝对 LLA + alt_frame
+#include <GCS_MAVLink/GCS_MAVLink.h>    // mavlink_command_int_t / MAV_RESULT
 
 class AP_Choreo {
 public:
@@ -62,6 +63,15 @@ public:
 
     // 50 Hz 主循环，由 ArduCopter/Copter.cpp scheduler_tasks[] 调度
     void update();
+
+    // 处理 COMMAND_INT MAV_CMD_USER_1（=31010）—— 同步扳机入口
+    //   x = int32(target_usec >> 32)
+    //   y = int32(target_usec & 0xFFFFFFFF)
+    //   (x=0, y=0) 表示解武装
+    //   COMMAND_INT 的 x/y 是原生 int32，不像 PARAM_SET INT32 走 float→int32 强转
+    //   会破坏 bit pattern（int32 bit 经 float 中转易变 NaN/denormal）。
+    //   每次到达都触发扣扳机，不依赖值变化。
+    MAV_RESULT handle_command_int_packet(const mavlink_command_int_t &packet);
 
     // AP_Param 参数表声明（在 .cpp 里定义具体的 AP_GROUPINFO）
     static const struct AP_Param::GroupInfo var_info[];
@@ -118,8 +128,13 @@ private:
     AP_Float _base_alt;      // CHOREO_BASE_ALT     基准高度补偿米（加到每帧 z 上）
     AP_Float _min_alt;       // CHOREO_MIN_ALT      最低开演高度米（默认 3m）
     AP_Int8  _loop;          // CHOREO_LOOP         0=单次跑完停 1=循环
-    AP_Int32 _t_hi;          // CHOREO_T_HI         目标 UTC 微秒高 32 位（写入触发武装）
-    AP_Int32 _t_lo;          // CHOREO_T_LO         目标 UTC 微秒低 32 位
+    AP_Int32 _t_hi;          // CHOREO_T_HI 【已废弃】仅保留 EEPROM 兼容（idx 9），不再读取
+    AP_Int32 _t_lo;          // CHOREO_T_LO 【已废弃】仅保留 EEPROM 兼容（idx 10），不再读取
+                             // —— 同步扳机改走 COMMAND_INT MAV_CMD_USER_1（bit-preserve int32）
+
+    // ============== COMMAND_INT 武装暂存（handle_command_int_packet 写入 → _check_arm 消费）==============
+    uint64_t _pending_target_usec = 0;  // 上一次 COMMAND_INT 携带的 target UTC 微秒
+    bool     _pending_arm         = false; // 收到 COMMAND_INT 后置 true，_check_arm 消费完清零
 
     // ============== 状态机 ==============
     enum class State : uint8_t {
@@ -130,8 +145,8 @@ private:
     } _state = State::IDLE;
 
     int32_t  _last_seen_nonce = -1;     // 【deprecated】旧版 nonce 缓存，不再使用
-    int32_t  _last_t_hi = 0;            // 上次看到的 T_HI（变了才重新武装）
-    int32_t  _last_t_lo = 0;            // 上次看到的 T_LO
+    int32_t  _last_t_hi = 0;            // 【deprecated】旧 T_HI/LO 变化检测残留，新方案改用 _pending_arm
+    int32_t  _last_t_lo = 0;            // 【deprecated】同上，保留只为最小化扰动
 
     // ============== Option B 双轨时间源（docs/TIME_SYNC.md） ==============
     uint64_t _arm_utc_usec = 0;        // GPS UTC 起点（主），微秒
@@ -162,10 +177,11 @@ private:
     //   都没有时返 false（调用方会自动用 millis 路径）
     bool  _read_utc_now(uint64_t &utc_usec_out) const;
 
-    // 检查 CHOREO_T_HI/LO 变化并触发武装
-    //   T_HI/LO 变了 → 把 (T_HI<<32 | T_LO) 当目标 UTC 微秒 → _arm_utc_usec
-    //   T_HI=T_LO=0 → 解武装（_arm_* 清零）
-    //   注：GCS 端已经把 lead 提前编进 target_usec，飞控这里不再 +LEAD
+    // 消费 _pending_arm flag 完成武装
+    //   handle_command_int_packet 收到 MAV_CMD_USER_1 后写 _pending_*，
+    //   本函数在 update() 50Hz 节拍里把暂存值搬到 _arm_utc_usec / _arm_millis。
+    //   target_usec=0 表示解武装（_arm_* 清零）
+    //   GCS 已把 lead 提前编进 target_usec，飞控不再 +LEAD
     void  _check_arm();
 
     // 算自起点以来已经过去多少秒

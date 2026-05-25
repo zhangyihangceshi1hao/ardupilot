@@ -3,6 +3,10 @@
 #include "GCS_Mavlink.h"
 #include <AP_RPM/AP_RPM_config.h>
 #include <AP_EFI/AP_EFI_config.h>
+#include <AP_Choreo/AP_Choreo_config.h>
+#if AP_CHOREO_ENABLED
+#include <AP_Choreo/AP_Choreo.h>
+#endif
 
 MAV_TYPE GCS_Copter::frame_type() const
 {
@@ -847,6 +851,18 @@ MAV_RESULT GCS_MAVLINK_Copter::handle_command_int_packet(const mavlink_command_i
             return MAV_RESULT_ACCEPTED;
         }
         return MAV_RESULT_FAILED;
+#endif
+
+#if AP_CHOREO_ENABLED
+    // AP_Choreo 同步扳机：COMMAND_INT 携带 target UTC 微秒（拆 x/y int32）
+    // 详见 AP_Choreo::handle_command_int_packet（bit-preserve int32，避免 PARAM_SET float 中转）
+    case MAV_CMD_USER_1: {
+        auto *choreo = AP::choreo();
+        if (choreo == nullptr) {
+            return MAV_RESULT_UNSUPPORTED;
+        }
+        return choreo->handle_command_int_packet(packet);
+    }
 #endif
 
     default:

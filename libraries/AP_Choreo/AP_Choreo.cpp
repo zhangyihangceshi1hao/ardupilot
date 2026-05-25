@@ -186,25 +186,59 @@ bool AP_Choreo::_read_utc_now(uint64_t &utc_usec_out) const
 }
 
 // ============================================================================
-//  _check_arm() —— 扣扳机检测 + 同步武装（docs/TIME_SYNC.md 第四节）
+//  handle_command_int_packet() —— COMMAND_INT MAV_CMD_USER_1 同步扳机入口
 //  ----------------------------------------------------------------------------
-//  新方案（NONCE → T_HI/T_LO）的核心改动：
-//    旧方案：GCS 发 CHOREO_NONCE++ 触发，飞控本地 _arm_utc_usec = now + LEAD
-//            → 5 架收到 PARAM_SET 的时刻不同（UDP 抖动 + 串发延迟），
-//              各机 _arm_utc_usec 互相差几十到几百毫秒，起跳点对不齐。
+//  接口约定：
+//    command = MAV_CMD_USER_1 (=31010)
+//    frame   = MAV_FRAME_MISSION
+//    x       = int32(target_usec >> 32)
+//    y       = int32(target_usec & 0xFFFFFFFF)
+//    z, param1..4 = 0
 //
-//    新方案：GCS 端算好 target_utc_usec = now + lead，拆成 (T_HI, T_LO) 两个
-//            int32 一并发给 5 架；飞控收到后都用同一个 target_usec 当
-//            _arm_utc_usec → PARAM_SET 到达时差完全不影响起跳精度。
+//  为什么不用 PARAM_SET INT32？
+//    AP_Param::set_value(type, ptr, float value) 对 AP_Int32 走 float→int32 强
+//    转。地面站发的 int32 bit pattern 经 float 中转后可能变 NaN/denormal，
+//    强转结果 = 0 —— CHOREO_T_HI/T_LO 永远是 0，扳机扣不上。
 //
-//  逻辑：
-//    1. 看 (T_HI, T_LO) 跟上次缓存的有没有变
-//    2. 没变 → 直接返回
-//    3. 变了：
-//         (0, 0) → 解武装（_arm_* 清零）
-//         非 0   → target_usec = (uint64(uint32(T_HI)) << 32) | uint32(T_LO)
-//                  _arm_utc_usec = target_usec        （不再 +LEAD）
-//                  _arm_millis 用"距 target 还有多少 ms"算兜底起点
+//  COMMAND_INT 的 x/y 字段是原生 int32（mavlink_command_int_t 里直接是
+//  int32_t），不经 float 转换，bit-preserve。
+//
+//  这里只做最薄的搬运：写 _pending_target_usec / _pending_arm，真正动作
+//  留给 _check_arm() 在 50Hz update() 节拍里消费 —— 避免在 mavlink 接收
+//  线程上下文里直接动状态机。
+// ============================================================================
+MAV_RESULT AP_Choreo::handle_command_int_packet(const mavlink_command_int_t &packet)
+{
+    // x/y 是原生 int32，bit-preserve（不像 PARAM_SET 走 float→int32 强转）
+    const int32_t hi = packet.x;
+    const int32_t lo = packet.y;
+    // 先 uint32 再左移避免符号扩展
+    _pending_target_usec = (uint64_t(uint32_t(hi)) << 32) | uint32_t(lo);
+    _pending_arm = true;
+    return MAV_RESULT_ACCEPTED;
+}
+
+// ============================================================================
+//  _check_arm() —— 消费 _pending_arm flag 完成武装（docs/TIME_SYNC.md 第四节）
+//  ----------------------------------------------------------------------------
+//  方案演进：
+//    v1 (NONCE):     GCS 发 CHOREO_NONCE++ 触发，本地 _arm = now + LEAD
+//                    → 各机 PARAM_SET 到达时刻不同，起跳错位几十~几百 ms
+//    v2 (T_HI/T_LO): GCS 把 target_usec 拆成两个 AP_Int32 参数写飞控
+//                    → 实测失败：PARAM_SET INT32 走 float→int32 强转，
+//                      int32 bit pattern 经 float 中转坏成 NaN/denormal，
+//                      飞控里 T_HI=T_LO=0，扳机扣不上
+//    v3 (COMMAND_INT MAV_CMD_USER_1，本版本):
+//                    GCS 用 COMMAND_INT 携带 target_usec，x/y 是原生 int32
+//                    bit-preserve；接收端 handle_command_int_packet 写
+//                    _pending_*，本函数消费。每次到达都触发，不依赖值变化。
+//
+//  消费逻辑：
+//    1. _pending_arm 为 false → 直接返回（保持当前武装状态）
+//    2. _pending_arm 为 true → 清 flag，把 _pending_target_usec 搬到 _arm_*
+//         target_usec=0 → 解武装（_arm_* 清零）
+//         非 0          → _arm_utc_usec = target_usec（不再 +LEAD）
+//                         _arm_millis 用"距 target 还有多少 ms"算兜底起点
 //
 //  跨架精度：
 //    - 共用同一 target_usec，跨架同步 < 1μs（受限于各机 GPS UTC 误差）
@@ -212,26 +246,22 @@ bool AP_Choreo::_read_utc_now(uint64_t &utc_usec_out) const
 // ============================================================================
 void AP_Choreo::_check_arm()
 {
-    const int32_t hi = _t_hi.get();
-    const int32_t lo = _t_lo.get();
-    if (hi == _last_t_hi && lo == _last_t_lo) {
-        // 没变化，啥也不做
+    if (!_pending_arm) {
+        // 没有新指令，保持现状
         return;
     }
-    _last_t_hi = hi;
-    _last_t_lo = lo;
+    _pending_arm = false;
 
-    if (hi == 0 && lo == 0) {
-        // GCS 写 (0,0) 表示"取消武装"
+    const uint64_t target_usec = _pending_target_usec;
+
+    if (target_usec == 0) {
+        // (x=0, y=0) 表示解武装
         _arm_utc_usec = 0;
         _arm_millis   = 0;
         _started      = false;
+        gcs().send_text(MAV_SEVERITY_INFO, "AP_Choreo: DISARMED");
         return;
     }
-
-    // 拼回 64 位目标 UTC 微秒。注意必须先 cast 到 uint32_t 避免负数符号扩展
-    const uint64_t target_usec =
-        (uint64_t(uint32_t(hi)) << 32) | uint32_t(lo);
 
     // 5 架统一用 GCS 算好的 target_usec，不再各自 +LEAD
     _arm_utc_usec = target_usec;
@@ -249,8 +279,8 @@ void AP_Choreo::_check_arm()
     _started = false;   // 重置 START banner 标志，让重新演出能再发一次
 
     gcs().send_text(MAV_SEVERITY_INFO,
-        "AP_Choreo: armed target_utc=%llu (T_HI=%ld T_LO=%ld)",
-        (unsigned long long)target_usec, (long)hi, (long)lo);
+        "AP_Choreo: armed target_utc=%llu",
+        (unsigned long long)target_usec);
 }
 
 // ============================================================================
@@ -427,7 +457,8 @@ bool AP_Choreo::_sample_at_t_norm(float t_norm,
 //
 //    (1) GUIDED 检查         —— 不在 GUIDED 不发位置目标
 //    (2) 高度检查             —— 飞机得爬过 MIN_ALT 才开演
-//    (3) T_HI/LO 触发检测     —— GCS 写 CHOREO_T_HI/T_LO 触发武装
+//    (3) 武装消费             —— GCS COMMAND_INT MAV_CMD_USER_1 触发 _pending_arm
+//                                 _check_arm() 在此搬运到 _arm_utc_usec / _arm_millis
 //    (4) 计算 elapsed_s       —— 自动选 UTC 或 millis
 //                                 返负 → ARMED_WAIT，飞 waypoint[0] 悬停 +
 //                                 LED 进入第一帧（倒计时阶段先就位）
