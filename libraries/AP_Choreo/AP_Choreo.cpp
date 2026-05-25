@@ -481,6 +481,24 @@ void AP_Choreo::update()
         return;
     }
 
+    // ============= 1Hz 推 CHOREO_ST 状态码（GCS DroneTable 行底色用） =============
+    //   值取上一帧的 _state（成员变量跨调用持久；本帧 _state 还没更新）
+    //     0 = IDLE/WAIT_ALT (蓝) / 1 = ARMED_WAIT (黄) / 2 = RUNNING (绿)
+    //   放在 update() 入口（_enable 检查之后、所有 early-return 之前），保证
+    //   IDLE/WAIT_ALT/ARMED_WAIT 任意阶段都能每秒推一次，地面站才看得到黄/蓝。
+    {
+        static uint32_t s_last_st_ms = 0;
+        const uint32_t now_ms_st = AP_HAL::millis();
+        if (now_ms_st - s_last_st_ms >= 1000) {
+            s_last_st_ms = now_ms_st;
+            float st_val = 0.0f;
+            if (_state == State::RUNNING)         st_val = 2.0f;
+            else if (_state == State::ARMED_WAIT) st_val = 1.0f;
+            else                                  st_val = 0.0f;  // IDLE/WAIT_ALT
+            gcs().send_named_float("CHOREO_ST", st_val);
+        }
+    }
+
     // 取车辆抽象（Copter / Plane 都实现了 AP_Vehicle 接口）
     AP_Vehicle *vehicle = AP::vehicle();
     if (vehicle == nullptr) {
@@ -585,22 +603,7 @@ void AP_Choreo::update()
     _drive_led(R, G, B);                  // 实时驱动硬件 LED
     _report_led(now_ms, R, G, B);          // 5Hz 推 NAMED_VALUE_FLOAT 给 GCS
 
-    // ============= (10) 1Hz 推 CHOREO_ST 状态码给 GCS（DroneTable 行底色用）=============
-    //   0 = IDLE/WAIT_ALT (蓝) / 1 = ARMED_WAIT (黄) / 2 = RUNNING (绿)
-    // 不要在 _state != RUNNING 时跳过——必须每秒都推一次，让地面站知道
-    // 飞控在线且当前不在 RUNNING（这样它能保持蓝色，否则刚演完地面站还
-    // 会显示绿）。注：本调用在 RUNNING 路径末尾；非 RUNNING 分支在前面
-    // 已 early-return，由地面站靠 connected 判定与 mode 显示兜底。
-    static uint32_t s_last_st_ms = 0;
-    const uint32_t now_ms_st = AP_HAL::millis();
-    if (now_ms_st - s_last_st_ms >= 1000) {
-        s_last_st_ms = now_ms_st;
-        float st_val = 0.0f;
-        if (_state == State::RUNNING)         st_val = 2.0f;
-        else if (_state == State::ARMED_WAIT) st_val = 1.0f;
-        else                                  st_val = 0.0f;  // IDLE/WAIT_ALT
-        gcs().send_named_float("CHOREO_ST", st_val);
-    }
+    // step (10) 推 CHOREO_ST 已搬到 update() 入口，避免 early-return 漏推
 }
 
 // ----------------------------------------------------------------------------
