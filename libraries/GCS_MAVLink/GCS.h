@@ -104,7 +104,7 @@ bool check_payload_size(mavlink_channel_t chan, uint16_t max_payload_len);
     }
 
 
-#define GCS_MAVLINK_NUM_STREAM_RATES 10
+#define GCS_MAVLINK_NUM_STREAM_RATES 11
 class GCS_MAVLINK_Parameters
 {
 public:
@@ -294,6 +294,7 @@ public:
         STREAM_EXTRA3,
         STREAM_PARAMS,
         STREAM_ADSB,
+        STREAM_HIGH_RATE,
         NUM_STREAMS
     };
 

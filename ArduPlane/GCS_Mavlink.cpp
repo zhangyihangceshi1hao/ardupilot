@@ -608,6 +608,16 @@ const AP_Param::GroupInfo GCS_MAVLINK_Parameters::var_info[] = {
     // @RebootRequired: True
     // @User: Advanced
     AP_GROUPINFO("ADSB",   9, GCS_MAVLINK_Parameters, streamRates[9],  5),
+
+    // @Param: HIGH_RATE
+    // @DisplayName: High rate stream
+    // @Description: MAVLink Stream rate of SYSTEM_TIME, GLOBAL_POSITION_INT and GPS_RAW_INT. Intended for high-frequency telemetry; pairs with SCHED_LOOP_RATE and adequate link bandwidth.
+    // @Units: Hz
+    // @Range: 0 200
+    // @Increment: 1
+    // @RebootRequired: True
+    // @User: Advanced
+    AP_GROUPINFO("HIGH_RATE", 10, GCS_MAVLINK_Parameters, streamRates[10], 100),
     AP_GROUPEND
 };
 
@@ -630,7 +640,6 @@ static const ap_message STREAM_EXTENDED_STATUS_msgs[] = {
 #endif
     MSG_MEMINFO,
     MSG_CURRENT_WAYPOINT,
-    MSG_GPS_RAW,
     MSG_GPS_RTK,
 #if GPS_MAX_RECEIVERS > 1
     MSG_GPS2_RAW,
@@ -643,7 +652,6 @@ static const ap_message STREAM_EXTENDED_STATUS_msgs[] = {
     MSG_POSITION_TARGET_GLOBAL_INT,
 };
 static const ap_message STREAM_POSITION_msgs[] = {
-    MSG_LOCATION,
     MSG_LOCAL_POSITION
 };
 static const ap_message STREAM_RAW_CONTROLLER_msgs[] = {
@@ -688,7 +696,6 @@ static const ap_message STREAM_EXTRA3_msgs[] = {
     MSG_RANGEFINDER,
 #endif
     MSG_DISTANCE_SENSOR,
-    MSG_SYSTEM_TIME,
 #if AP_TERRAIN_AVAILABLE
     MSG_TERRAIN_REPORT,
     MSG_TERRAIN_REQUEST,
@@ -718,6 +725,11 @@ static const ap_message STREAM_ADSB_msgs[] = {
     MSG_AIS_VESSEL,
 #endif
 };
+static const ap_message STREAM_HIGH_RATE_msgs[] = {
+    MSG_SYSTEM_TIME,
+    MSG_LOCATION,
+    MSG_GPS_RAW,
+};
 
 const struct GCS_MAVLINK::stream_entries GCS_MAVLINK::all_stream_entries[] = {
     MAV_STREAM_ENTRY(STREAM_RAW_SENSORS),
@@ -730,6 +742,7 @@ const struct GCS_MAVLINK::stream_entries GCS_MAVLINK::all_stream_entries[] = {
     MAV_STREAM_ENTRY(STREAM_EXTRA3),
     MAV_STREAM_ENTRY(STREAM_PARAMS),
     MAV_STREAM_ENTRY(STREAM_ADSB),
+    MAV_STREAM_ENTRY(STREAM_HIGH_RATE),
     MAV_STREAM_TERMINATOR // must have this at end of stream_entries
 };
 
