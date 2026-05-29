@@ -575,12 +575,37 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
     entry.relative_alt = center.relative_alt;
     entry.terrain_alt = center.terrain_alt;
 
+    // 算 θ = entry → exit 沿圆方向弧角 (= 飞机第 1 次自然飞到 exit 走过的角度).
+    //   < 180° → 阈值用 sum_cd > 1 (= 沿弧自然退出, 不绕冤枉圈)
+    //   ≥ 180° → 阈值用 sum_cd >= 36000 (= 强制 1 圈 + 第 2 次到 exit 退出)
+    // 默认 360° (= 没下一个 nav cmd 时保守强制 1 圈).
+    float arc_deg = 360.0f;
+    AP_Mission::Mission_Command next_cmd;
+    const uint16_t next_idx = mission.get_current_nav_index() + 1;
+    if (mission.get_next_nav_cmd(next_idx, next_cmd)) {
+        const Location next_pos = next_cmd.content.location;
+        const Location exit_pt = compute_tangent_exit_point(center, next_pos, R, ccw);
+        // exit 退化 (= next 在圆内) → arc_deg 保持 360, 强制 1 圈
+        if (!center.same_latlon_as(exit_pt)) {
+            const float entry_brg = center.get_bearing_to(entry) * 0.01f;
+            const float exit_brg  = center.get_bearing_to(exit_pt) * 0.01f;
+            // CW: bearing 沿圆递增; CCW: bearing 递减
+            arc_deg = ccw ? fmodf(entry_brg - exit_brg + 360.0f, 360.0f)
+                          : fmodf(exit_brg  - entry_brg + 360.0f, 360.0f);
+        }
+    }
+    tangent_loiter_arc_deg = arc_deg;
+
     // 把 entry 设成 next WP; prev_WP_loc 自动变成上一段终点
     set_next_WP(entry);
     loiter_set_direction_wp(cmd);
 
     tangent_loiter_entry_reached = false;
     condition_value = 0;     // 高度门控状态 (LOITER 阶段用)
+
+    gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: arc=%d deg (%s)",
+                    int(arc_deg),
+                    (arc_deg >= 180.0f) ? "full-loop" : "short-arc");
 }
 
 bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
@@ -604,14 +629,16 @@ bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
         return false;
     }
 
-    // === 阶段 2: LOITER 行为 — 高度门控 + 强制至少绕 1 圈 ===
-    // 跟标准 verify_loiter_to_alt 区别: sum_cd 阈值从 > 1 (= 几乎零度) 改成
-    // >= 36000 (= 360°), 让"同高度 wp"也至少绕 1 圈, 真正按圆飞.
+    // === 阶段 2: LOITER 行为 — 按 entry→exit 弧角 θ 选 sum_cd 阈值 ===
+    //   θ <  180° (= 飞机自然短弧绕到 exit) → 阈值 1 (= 跟标准 LOITER_TO_ALT 一致)
+    //   θ >= 180° (= 半圆以上) → 阈值 36000 (= 强制至少 1 圈, 避免 ArduPlane verify_loiter_heading 看上去几乎不绕)
+    const bool needs_full_loop = (tangent_loiter_arc_deg >= 180.0f);
+    const int32_t sum_cd_threshold = needs_full_loop ? 36000 : 1;
+
     update_loiter(cmd.p1);
 
     if (condition_value == 0) {
-        // 主目标: 至少绕 1 圈 + 高度到位
-        if (labs(loiter.sum_cd) >= 36000
+        if (labs(loiter.sum_cd) >= sum_cd_threshold
             && (loiter.reached_target_alt || loiter.unable_to_acheive_target_alt))
         {
             if (loiter.unable_to_acheive_target_alt) {
@@ -653,6 +680,30 @@ Location Plane::compute_tangent_entry_point(const Location &current,
     Location entry = center;
     entry.offset_bearing(entry_bearing_deg, R_m);
     return entry;
+}
+
+// 算从 center 引切线指向 next 的切点 (落在 center 圆周上).
+//   对称于 entry: entry 在 P→C 朝向的"反侧" 切点, exit 在 C→N 朝向的"反侧" 切点.
+//   推导: 飞机绕圆要在退出时沿切线对齐 next, 切点选跟 entry 公式符号相反那侧.
+//   视觉 CCW: exit bearing (from center) = θ_c→n + α
+//   视觉 CW : exit bearing (from center) = θ_c→n - α
+Location Plane::compute_tangent_exit_point(const Location &center,
+                                            const Location &next,
+                                            float R_m, bool ccw) const
+{
+    const float dist_m = center.get_distance(next);
+    // 退化: next 在圆内 → 直接返回圆心
+    if (dist_m <= R_m + 1.0f) {
+        return center;
+    }
+    const int32_t bearing_cd = center.get_bearing_to(next);
+    const float bearing_deg = bearing_cd * 0.01f;
+    const float alpha_deg = degrees(acosf(R_m / dist_m));
+    const float exit_bearing_deg = ccw ? (bearing_deg + alpha_deg)
+                                       : (bearing_deg - alpha_deg);
+    Location exit_pt = center;
+    exit_pt.offset_bearing(exit_bearing_deg, R_m);
+    return exit_pt;
 }
 
 // do_nav_delay - Delay the next navigation command

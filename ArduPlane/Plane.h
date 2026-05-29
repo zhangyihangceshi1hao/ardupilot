@@ -987,7 +987,11 @@ private:
     Location compute_tangent_entry_point(const Location &current,
                                           const Location &center,
                                           float R_m, bool ccw) const;
-    bool tangent_loiter_entry_reached;   // do_tangent_loiter 内部状态机
+    Location compute_tangent_exit_point(const Location &center,
+                                         const Location &next,
+                                         float R_m, bool ccw) const;
+    bool  tangent_loiter_entry_reached;   // 内部状态机: 阶段 1 vs 阶段 2
+    float tangent_loiter_arc_deg;         // entry→exit 沿圆方向弧角 (deg, 0..360); 默认 360
     bool verify_RTL();
     bool verify_continue_and_change_alt();
     bool verify_wait_delay();
