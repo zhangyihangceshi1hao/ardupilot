@@ -623,6 +623,9 @@ bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
             center.sanitize(current_loc);
             set_next_WP(center);     // prev_WP_loc 变成 entry (= 已飞过的位置)
             loiter_set_direction_wp(cmd);
+            // 关键: reset sum_cd, 否则上一个 LOITER cmd 残留值会让 verify 立即满足
+            loiter.sum_cd = 0;
+            loiter.start_time_ms = 0;
             tangent_loiter_entry_reached = true;
             gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: entry reached, start loiter");
         }
