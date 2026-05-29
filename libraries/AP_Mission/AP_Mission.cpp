@@ -19,6 +19,12 @@
 #include <AC_Fence/AC_Fence.h>
 #include <AP_Logger/AP_Logger.h>
 
+// 自定义 cmd: 切线进入 LOITER (= 1 个 mission item 实现 "切线进 + 绕至高 + xtrack 切出").
+// 复用 MAV_CMD_NAV_FOLLOW (=25) 的编号 (ArduPlane 不实现该 cmd, 无冲突;
+// 选 ≤255 编号是因为 ArduPilot mission storage 要求带 location 的 cmd id ≤255,
+// 否则触发 PANIC "May not store location for 16-bit commands").
+static constexpr uint16_t MAV_CMD_NAV_TANGENT_LOITER = MAV_CMD_NAV_FOLLOW;
+
 const AP_Param::GroupInfo AP_Mission::var_info[] = {
 
     // @Param: TOTAL
@@ -897,6 +903,7 @@ bool AP_Mission::stored_in_location(uint16_t id)
     case MAV_CMD_NAV_TAKEOFF:
     case MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT:
     case MAV_CMD_NAV_LOITER_TO_ALT:
+    case MAV_CMD_NAV_TANGENT_LOITER:                                         // NAV_TANGENT_LOITER (自定义)
     case MAV_CMD_NAV_SPLINE_WAYPOINT:
     case MAV_CMD_NAV_GUIDED_ENABLE:
     case MAV_CMD_DO_SET_HOME:
@@ -1156,6 +1163,13 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
         cmd.p1 = fabsf(packet.param2);                  // param2 is radius in meters
         cmd.content.location.loiter_ccw = (packet.param2 < 0);
         cmd.content.location.loiter_xtrack = (packet.param4 > 0); // 0 to xtrack from center of waypoint, 1 to xtrack from tangent exit location
+        break;
+
+    case MAV_CMD_NAV_TANGENT_LOITER:                                         // NAV_TANGENT_LOITER (自定义)
+        // 字段语义跟 NAV_LOITER_TO_ALT 一致, 但 do_* 会额外算切线进入.
+        cmd.p1 = fabsf(packet.param2);
+        cmd.content.location.loiter_ccw = (packet.param2 < 0);
+        cmd.content.location.loiter_xtrack = (packet.param4 > 0);
         break;
 
     case MAV_CMD_NAV_SPLINE_WAYPOINT:                   // MAV ID: 82
@@ -1683,6 +1697,14 @@ bool AP_Mission::mission_cmd_to_mavlink_int(const AP_Mission::Mission_Command& c
             packet.param2 = -packet.param2;
         }
         packet.param4 = cmd.content.location.loiter_xtrack; // 0 to xtrack from center of waypoint, 1 to xtrack from tangent exit location
+        break;
+
+    case MAV_CMD_NAV_TANGENT_LOITER:                                         // NAV_TANGENT_LOITER (自定义)
+        packet.param2 = cmd.p1;
+        if (cmd.content.location.loiter_ccw) {
+            packet.param2 = -packet.param2;
+        }
+        packet.param4 = cmd.content.location.loiter_xtrack;
         break;
 
     case MAV_CMD_NAV_SPLINE_WAYPOINT:                   // MAV ID: 82
@@ -2787,6 +2809,8 @@ const char *AP_Mission::Mission_Command::type() const
         return "LoitTurns";
     case MAV_CMD_NAV_LOITER_TO_ALT:
         return "LoitAltitude";
+    case MAV_CMD_NAV_TANGENT_LOITER:
+        return "TangentLoiter";
     case MAV_CMD_NAV_SET_YAW_SPEED:
         return "SetYawSpd";
     case MAV_CMD_CONDITION_DELAY:

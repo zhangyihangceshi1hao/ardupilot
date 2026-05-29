@@ -1,5 +1,9 @@
 #include "Plane.h"
 
+// 自定义 cmd 别名: 切线进入 LOITER (= hijack MAV_CMD_NAV_FOLLOW=25)
+//   详见 libraries/AP_Mission/AP_Mission.cpp 顶部注释
+static constexpr uint16_t MAV_CMD_NAV_TANGENT_LOITER = MAV_CMD_NAV_FOLLOW;
+
 /********************************************************************************/
 // Command Event Handlers
 /********************************************************************************/
@@ -77,6 +81,10 @@ bool Plane::start_command(const AP_Mission::Mission_Command& cmd)
 
     case MAV_CMD_NAV_LOITER_TO_ALT:
         do_loiter_to_alt(cmd);
+        break;
+
+    case MAV_CMD_NAV_TANGENT_LOITER:            // = MAV_CMD_NAV_FOLLOW (25) 别名 (自定义)
+        do_tangent_loiter(cmd);
         break;
 
     case MAV_CMD_NAV_RETURN_TO_LAUNCH:
@@ -264,6 +272,9 @@ bool Plane::verify_command(const AP_Mission::Mission_Command& cmd)        // Ret
 
     case MAV_CMD_NAV_LOITER_TO_ALT:
         return verify_loiter_to_alt(cmd);
+
+    case MAV_CMD_NAV_TANGENT_LOITER:            // = MAV_CMD_NAV_FOLLOW (25) 别名 (自定义)
+        return verify_tangent_loiter(cmd);
 
     case MAV_CMD_NAV_RETURN_TO_LAUNCH:
         return verify_RTL();
@@ -530,7 +541,7 @@ void Plane::do_altitude_wait(const AP_Mission::Mission_Command& cmd)
 
 void Plane::do_loiter_to_alt(const AP_Mission::Mission_Command& cmd)
 {
-    //set target alt  
+    //set target alt
     Location loc = cmd.content.location;
     loc.sanitize(current_loc);
     set_next_WP(loc);
@@ -538,6 +549,88 @@ void Plane::do_loiter_to_alt(const AP_Mission::Mission_Command& cmd)
 
     // init to 0, set to 1 when altitude is reached
     condition_value = 0;
+}
+
+// ===========================================================================
+// 自定义: NAV_TANGENT_LOITER (= hijack MAV_CMD_NAV_FOLLOW=25, 因为 ArduPilot mission
+// storage 要求带 location 的 cmd id ≤ 255. 我们选 25 (= 标准 NAV_FOLLOW, ArduPlane
+// 不实现, 无冲突). 语义重定义为"切线进入 LOITER".
+//   一条 mission item 实现 "切线进入 + 绕圈到高度 + 切线退出"
+//   字段语义跟 LOITER_TO_ALT 一致 (lat/lon=圆心, alt=target, p1=R, ccw=p2符号, xtrack=p4)
+//   状态机 (tangent_loiter_entry_reached):
+//     false → 飞向切线 entry 切点 (= 圆周上离当前位置最近的切点)
+//     true  → 已到 entry, 进入标准 LOITER 行为 (复用 update_loiter + 高度门控)
+// ===========================================================================
+void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
+{
+    Location center = cmd.content.location;
+    center.sanitize(current_loc);
+    const float R = cmd.p1;
+    const bool ccw = cmd.content.location.loiter_ccw;
+
+    // 算切线进入点
+    Location entry = compute_tangent_entry_point(current_loc, center, R, ccw);
+    // 切入高度 = target alt (= 边飞 entry 边爬)
+    entry.alt = center.alt;
+    entry.relative_alt = center.relative_alt;
+    entry.terrain_alt = center.terrain_alt;
+
+    // 把 entry 设成 next WP; prev_WP_loc 自动变成上一段终点
+    set_next_WP(entry);
+    loiter_set_direction_wp(cmd);
+
+    tangent_loiter_entry_reached = false;
+    condition_value = 0;     // 高度门控状态 (LOITER 阶段用)
+}
+
+bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
+{
+    if (!tangent_loiter_entry_reached) {
+        // === 阶段 1: 飞向切线 entry 切点 ===
+        nav_controller->update_waypoint(prev_WP_loc, next_WP_loc);
+
+        // 到达 entry 判定 (复用 NAV_WP 完成判据)
+        const float dist_to_entry = current_loc.get_distance(next_WP_loc);
+        const uint16_t wp_radius = MAX(get_wp_radius(), 1);
+        if (dist_to_entry <= wp_radius || reached_loiter_target()) {
+            // 切换到 LOITER 阶段: next_WP 改成圆心
+            Location center = cmd.content.location;
+            center.sanitize(current_loc);
+            set_next_WP(center);     // prev_WP_loc 变成 entry (= 已飞过的位置)
+            loiter_set_direction_wp(cmd);
+            tangent_loiter_entry_reached = true;
+            gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: entry reached, start loiter");
+        }
+        return false;
+    }
+
+    // === 阶段 2: 标准 LOITER 行为 (复用 verify_loiter_to_alt 逻辑) ===
+    return verify_loiter_to_alt(cmd);
+}
+
+// 算从 current 朝 center 引切线的切点 (落在 center 圆周上).
+//   公式: 圆心朝飞机的 bearing = θ_c→p, 切角 α = acos(R/d)
+//   视觉 CCW: entry bearing (from center) = θ_c→p - α
+//   视觉 CW : entry bearing (from center) = θ_c→p + α
+//   (推导: ENU thetaEntry = thetaP ± α, geographic = 90° - ENU)
+Location Plane::compute_tangent_entry_point(const Location &current,
+                                             const Location &center,
+                                             float R_m, bool ccw) const
+{
+    const float dist_m = current.get_distance(center);
+    // 退化: 飞机在圆内 → 直接返回圆心 (= 不算切线, 走默认 LOITER 行为)
+    if (dist_m <= R_m + 1.0f) {
+        return center;
+    }
+    // bearing from center to current (centi-deg, geographic = N=0 CW)
+    const int32_t bearing_cd = center.get_bearing_to(current);
+    const float bearing_deg = bearing_cd * 0.01f;
+    const float alpha_deg = degrees(acosf(R_m / dist_m));
+    const float entry_bearing_deg = ccw ? (bearing_deg - alpha_deg)
+                                        : (bearing_deg + alpha_deg);
+    Location entry = center;
+    entry.offset_bearing(entry_bearing_deg, R_m);
+    return entry;
 }
 
 // do_nav_delay - Delay the next navigation command

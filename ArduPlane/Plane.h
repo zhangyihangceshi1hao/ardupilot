@@ -978,6 +978,16 @@ private:
     bool verify_loiter_time();
     bool verify_loiter_turns(const AP_Mission::Mission_Command &cmd);
     bool verify_loiter_to_alt(const AP_Mission::Mission_Command &cmd);
+
+    // === 自定义 cmd: NAV_TANGENT_LOITER (= 31200) ===
+    // 跟 LOITER_TO_ALT 同字段, 但 do_* 先飞到切线 entry, 再进入 LOITER 行为.
+    // 让"1 个 mission item 实现 切线进入 + 盘旋至高 + 切线退出".
+    void do_tangent_loiter(const AP_Mission::Mission_Command& cmd);
+    bool verify_tangent_loiter(const AP_Mission::Mission_Command& cmd);
+    Location compute_tangent_entry_point(const Location &current,
+                                          const Location &center,
+                                          float R_m, bool ccw) const;
+    bool tangent_loiter_entry_reached;   // do_tangent_loiter 内部状态机
     bool verify_RTL();
     bool verify_continue_and_change_alt();
     bool verify_wait_delay();
