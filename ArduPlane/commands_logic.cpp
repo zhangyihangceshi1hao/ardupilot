@@ -605,7 +605,7 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
 
     gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: arc=%d deg (%s)",
                     int(arc_deg),
-                    (arc_deg >= 180.0f) ? "full-loop" : "short-arc");
+                    (arc_deg >= 270.0f) ? "full-loop" : "short-arc");
 }
 
 bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
@@ -630,9 +630,9 @@ bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
     }
 
     // === 阶段 2: LOITER 行为 — 按 entry→exit 弧角 θ 选 sum_cd 阈值 ===
-    //   θ <  180° (= 飞机自然短弧绕到 exit) → 阈值 1 (= 跟标准 LOITER_TO_ALT 一致)
-    //   θ >= 180° (= 半圆以上) → 阈值 36000 (= 强制至少 1 圈, 避免 ArduPlane verify_loiter_heading 看上去几乎不绕)
-    const bool needs_full_loop = (tangent_loiter_arc_deg >= 180.0f);
+    //   θ <  270° (= 飞机自然短/中弧绕到 exit) → 阈值 1 (= 跟标准 LOITER_TO_ALT 一致)
+    //   θ >= 270° (= 几乎整圆) → 阈值 36000 (= 强制至少 1 圈)
+    const bool needs_full_loop = (tangent_loiter_arc_deg >= 270.0f);
     const int32_t sum_cd_threshold = needs_full_loop ? 36000 : 1;
 
     update_loiter(cmd.p1);
