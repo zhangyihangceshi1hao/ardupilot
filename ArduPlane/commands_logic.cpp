@@ -604,8 +604,30 @@ bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
         return false;
     }
 
-    // === 阶段 2: 标准 LOITER 行为 (复用 verify_loiter_to_alt 逻辑) ===
-    return verify_loiter_to_alt(cmd);
+    // === 阶段 2: LOITER 行为 — 高度门控 + 强制至少绕 1 圈 ===
+    // 跟标准 verify_loiter_to_alt 区别: sum_cd 阈值从 > 1 (= 几乎零度) 改成
+    // >= 36000 (= 360°), 让"同高度 wp"也至少绕 1 圈, 真正按圆飞.
+    update_loiter(cmd.p1);
+
+    if (condition_value == 0) {
+        // 主目标: 至少绕 1 圈 + 高度到位
+        if (labs(loiter.sum_cd) >= 36000
+            && (loiter.reached_target_alt || loiter.unable_to_acheive_target_alt))
+        {
+            if (loiter.unable_to_acheive_target_alt) {
+                gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: stuck at %d", int(current_loc.alt/100));
+            }
+            condition_value = 1;
+            return verify_loiter_heading(true);
+        }
+        return false;
+    }
+    // 次目标: 等切线退出 heading 对齐
+    if (verify_loiter_heading(false)) {
+        gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: complete");
+        return true;
+    }
+    return false;
 }
 
 // 算从 current 朝 center 引切线的切点 (落在 center 圆周上).
