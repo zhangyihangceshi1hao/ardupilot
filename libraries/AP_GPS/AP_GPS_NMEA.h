@@ -264,6 +264,14 @@ private:
 
     // send type specific config strings
     void send_config(void);
+
+#ifdef HAL_GPIO_PPS
+    void pps_interrupt(uint8_t pin, bool high, uint32_t timestamp_us);
+    volatile uint32_t _pps_count;
+    uint32_t _pps_last_report_ms;
+    uint32_t _pps_last_reported_count;
+    bool _pps_initialised;
+#endif
 };
 
 #if AP_GPS_NMEA_UNICORE_ENABLED && !defined(NMEA_UNICORE_SETUP)

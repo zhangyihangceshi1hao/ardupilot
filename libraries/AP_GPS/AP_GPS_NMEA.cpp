@@ -60,7 +60,30 @@ bool AP_GPS_NMEA::read(void)
 {
     int16_t numc;
     bool parsed = false;
+    #ifdef HAL_GPIO_PPS
+        if (!_pps_initialised) {
+            hal.gpio->attach_interrupt(
+                HAL_GPIO_PPS,
+                FUNCTOR_BIND_MEMBER(&AP_GPS_NMEA::pps_interrupt, void, uint8_t, bool, uint32_t),
+                AP_HAL::GPIO::INTERRUPT_FALLING);
+            _pps_initialised = true;
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO, "GPS %u NMEA: PPS interrupt attached on GPIO %u",
+                        state.instance + 1, (unsigned)HAL_GPIO_PPS);
+        }
 
+        uint32_t millis_now = AP_HAL::millis();
+        if (millis_now - _pps_last_report_ms >= 5000) {
+            uint32_t now_count = _pps_count;
+            uint32_t delta = now_count - _pps_last_reported_count;
+            GCS_SEND_TEXT(MAV_SEVERITY_INFO,
+                        "GPS %u PPS pulses: total=%lu delta5s=%lu",
+                        state.instance + 1,
+                        (unsigned long)now_count,
+                        (unsigned long)delta);
+            _pps_last_reported_count = now_count;
+            _pps_last_report_ms = millis_now;
+        }
+    #endif
     send_config();
 
     numc = port->available();
@@ -75,7 +98,13 @@ bool AP_GPS_NMEA::read(void)
     }
     return parsed;
 }
-
+#ifdef HAL_GPIO_PPS
+void AP_GPS_NMEA::pps_interrupt(uint8_t pin, bool high, uint32_t timestamp_us)
+{
+    _last_pps_time_us = AP_HAL::micros64();
+    _pps_count++;
+}
+#endif
 /*
   decode one character, return true if we have successfully completed a sentence, false otherwise
  */
