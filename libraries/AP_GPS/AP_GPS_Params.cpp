@@ -113,6 +113,15 @@ const AP_Param::GroupInfo AP_GPS::Params::var_info[] = {
     AP_GROUPINFO("CAN_OVRIDE", 9, AP_GPS::Params, override_node_id, 0),
 #endif
 
+    // @Param: _YAW_OFS
+    // @DisplayName: GPS yaw offset in degree
+    // @Description: GPS提供的航向的偏移值
+    // @Units: deg
+    // @Range: 0 360
+    // @User: Advanced
+    // @RebootRequired: False
+    AP_GROUPINFO("YAW_OFS", 10, AP_GPS::Params, yaw_offset_deg, 0),
+
     AP_GROUPEND
 };
 
