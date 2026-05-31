@@ -4,6 +4,85 @@
 //   详见 libraries/AP_Mission/AP_Mission.cpp 顶部注释
 static constexpr uint16_t MAV_CMD_NAV_TANGENT_LOITER = MAV_CMD_NAV_FOLLOW;
 
+namespace {
+
+// 跟 GCS isLocationNav 同一集合: 有 location (lat/lon) 的 nav cmd
+bool is_location_nav_cmd_id(uint16_t id)
+{
+    switch (id) {
+    case MAV_CMD_NAV_WAYPOINT:
+    case MAV_CMD_NAV_TAKEOFF:
+    case MAV_CMD_NAV_VTOL_TAKEOFF:
+    case MAV_CMD_NAV_LOITER_UNLIM:
+    case MAV_CMD_NAV_LOITER_TIME:
+    case MAV_CMD_NAV_LOITER_TURNS:
+    case MAV_CMD_NAV_LOITER_TO_ALT:
+    case MAV_CMD_NAV_LAND:
+    case MAV_CMD_NAV_VTOL_LAND:
+    case MAV_CMD_NAV_TANGENT_LOITER:    // = 25
+        return true;
+    default:
+        return false;
+    }
+}
+
+// 返回 cmd 对应"圆 wp"半径(m), 不是圆 wp (= 点) 返回 0.
+//   TANGENT_LOITER: cmd.p1 低 15 位
+//   LOITER_TO_ALT/UNLIM/TIME/TURNS: cmd.p1 直接是 R
+//   其他: 0
+float circle_radius_of_cmd(const AP_Mission::Mission_Command &cmd)
+{
+    switch (cmd.id) {
+    case MAV_CMD_NAV_TANGENT_LOITER:
+        return float(cmd.p1 & 0x7FFF);
+    case MAV_CMD_NAV_LOITER_UNLIM:
+    case MAV_CMD_NAV_LOITER_TIME:
+    case MAV_CMD_NAV_LOITER_TURNS:
+    case MAV_CMD_NAV_LOITER_TO_ALT:
+        return float(cmd.p1);
+    default:
+        return 0.0f;
+    }
+}
+
+// 两圆公切线 (ENU 系下), 跟 GCS MissionTransfer::computeBitangent 同算法.
+// 出参 angA/angB: pa(在 a 圆上) / pb(在 b 圆上) 相对各自圆心的极角 (ENU math, 弧度).
+// 同向(都 CCW 或都 CW) → 外切; 异向 → 内切.
+// 返回 false 表示退化 (= 同向 |rA-rB|>d 或 异向 d ≤ rA+rB).
+bool compute_bitangent_enu(double caE, double caN, double rA, bool ccwA,
+                           double cbE, double cbN, double rB, bool ccwB,
+                           double &angA, double &angB)
+{
+    const double dx = cbE - caE;
+    const double dy = cbN - caN;
+    const double d  = sqrt(dx*dx + dy*dy);
+    if (d < 1e-3) return false;
+    const double alpha = atan2(dy, dx);
+
+    if (ccwA == ccwB) {
+        // 同向 → 外切
+        const double arg = (rA - rB) / d;
+        if (arg < -1.0 || arg > 1.0) return false;
+        const double beta = acos(arg);
+        const double psi = ccwA ? (alpha + beta) : (alpha - beta);
+        angA = psi;
+        angB = psi;
+    } else {
+        // 异向 → 内切
+        if (d <= rA + rB + 1e-3) return false;
+        const double arg = (rA + rB) / d;
+        if (arg < -1.0 || arg > 1.0) return false;
+        const double gamma = acos(arg);
+        const double psi_a = ccwA ? (alpha + gamma) : (alpha - gamma);
+        const double psi_b = psi_a + M_PI;
+        angA = psi_a;
+        angB = psi_b;
+    }
+    return true;
+}
+
+}  // namespace
+
 /********************************************************************************/
 // Command Event Handlers
 /********************************************************************************/
@@ -576,9 +655,88 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
     entry.relative_alt = center.relative_alt;
     entry.terrain_alt = center.terrain_alt;
 
-    // isBigArc 直接从 cmd.p1 高位读 (GCS 用公切线算好上传, 飞控不再自己算 arc).
-    const bool is_big_arc = (cmd.p1 & 0x8000) != 0;
-    tangent_loiter_arc_deg = is_big_arc ? 360.0f : 0.0f;     // 仅供 send_text 日志显示用
+    // === 飞控自算 isBigArc (= 跟 GCS MissionTransfer::computeArcForCircleWp 同算法) ===
+    //   公切线 (prev 圆 ↔ current) → entry 切点角度
+    //   公切线 (current ↔ next 圆) → exit 切点角度
+    //   prev/next 是点 wp → 退化到单边切线 (compute_tangent_entry_point 类似公式)
+    //   sweep = entry → exit 沿绕向走的弧角. > 180° → big arc.
+    bool is_big_arc_fc = false;
+    bool arc_known = false;
+    float arc_deg_fc = 0.0f;
+    {
+        AP_Mission::Mission_Command prev_cmd, next_cmd;
+        const uint16_t prev_idx = mission.get_prev_nav_cmd_with_wp_index();
+        const uint16_t next_idx = mission.get_current_nav_index() + 1;
+        const bool prev_ok = (prev_idx != AP_MISSION_CMD_INDEX_NONE)
+                           && mission.read_cmd_from_storage(prev_idx, prev_cmd)
+                           && is_location_nav_cmd_id(prev_cmd.id);
+        const bool next_ok = mission.get_next_nav_cmd(next_idx, next_cmd)
+                           && is_location_nav_cmd_id(next_cmd.id);
+        if (prev_ok && next_ok) {
+            const Vector2f prev_ne = center.get_distance_NE(prev_cmd.content.location);
+            const Vector2f next_ne = center.get_distance_NE(next_cmd.content.location);
+            const double prev_e = prev_ne.y, prev_n = prev_ne.x;
+            const double next_e = next_ne.y, next_n = next_ne.x;
+            const float prev_R = circle_radius_of_cmd(prev_cmd);
+            const float next_R = circle_radius_of_cmd(next_cmd);
+            const bool prev_ccw = prev_cmd.content.location.loiter_ccw;
+            const bool next_ccw = next_cmd.content.location.loiter_ccw;
+
+            // entry 切点极角
+            double theta_entry = 0.0;
+            bool entry_ok = false;
+            if (prev_R > 0.5f) {
+                double angA, angB;
+                if (compute_bitangent_enu(prev_e, prev_n, prev_R, prev_ccw,
+                                           0.0, 0.0, R, ccw, angA, angB)) {
+                    theta_entry = angB;
+                    entry_ok = true;
+                }
+            } else {
+                const double d = sqrt(prev_e*prev_e + prev_n*prev_n);
+                if (d > R + 1.0f) {
+                    const double thetaP = atan2(prev_n, prev_e);
+                    const double aP = acos(double(R) / d);
+                    theta_entry = ccw ? (thetaP + aP) : (thetaP - aP);
+                    entry_ok = true;
+                }
+            }
+
+            // exit 切点极角
+            double theta_exit = 0.0;
+            bool exit_ok = false;
+            if (next_R > 0.5f) {
+                double angA, angB;
+                if (compute_bitangent_enu(0.0, 0.0, R, ccw,
+                                           next_e, next_n, next_R, next_ccw,
+                                           angA, angB)) {
+                    theta_exit = angA;
+                    exit_ok = true;
+                }
+            } else {
+                const double d = sqrt(next_e*next_e + next_n*next_n);
+                if (d > R + 1.0f) {
+                    const double thetaN = atan2(next_n, next_e);
+                    const double aN = acos(double(R) / d);
+                    theta_exit = ccw ? (thetaN - aN) : (thetaN + aN);
+                    exit_ok = true;
+                }
+            }
+
+            if (entry_ok && exit_ok) {
+                double rad = ccw ? (theta_exit - theta_entry) : (theta_entry - theta_exit);
+                while (rad < 0)              rad += 2.0 * M_PI;
+                while (rad >= 2.0 * M_PI)    rad -= 2.0 * M_PI;
+                arc_deg_fc = float(rad * 180.0 / M_PI);
+                is_big_arc_fc = (arc_deg_fc > 180.0f);
+                arc_known = true;
+            }
+        }
+    }
+
+    // 兼容: GCS 也算了 isBigArc 写在 cmd.p1 高位; 飞控算不出来时 fallback.
+    const bool is_big_arc_gcs = (cmd.p1 & 0x8000) != 0;
+    tangent_loiter_is_big_arc = arc_known ? is_big_arc_fc : is_big_arc_gcs;
 
     // 把 entry 设成 next WP; prev_WP_loc 自动变成上一段终点
     set_next_WP(entry);
@@ -587,8 +745,11 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
     tangent_loiter_entry_reached = false;
     condition_value = 0;     // 高度门控状态 (LOITER 阶段用)
 
-    gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: R=%dm (%s)",
-                    int(R), is_big_arc ? "big-arc, half-loop" : "small-arc");
+    gcs().send_text(MAV_SEVERITY_INFO,
+                    "TangentLoiter: R=%dm arc=%d° FC=%d GCS=%d %s",
+                    int(R), int(arc_deg_fc),
+                    int(is_big_arc_fc), int(is_big_arc_gcs),
+                    tangent_loiter_is_big_arc ? "half-loop" : "short-arc");
 }
 
 bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
@@ -615,15 +776,13 @@ bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
         return false;
     }
 
-    // === 阶段 2: LOITER 行为 — 按 GCS 写的 isBigArc 标志选 sum_cd 阈值 ===
-    //   isBigArc=0 → 阈值 1     (= 短弧, 跟标准 LOITER_TO_ALT 一致, heading 对了就退)
+    // === 阶段 2: LOITER 行为 — 按 isBigArc 选 sum_cd 阈值 ===
+    //   isBigArc=0 → 阈值 1     (= 短弧, heading 对了就退)
     //   isBigArc=1 → 阈值 18000 (= 半圈, 强制飞 180° 再 verify_heading 退出)
-    // 标志由 GCS 用公切线 + arc>180 算好后通过 cmd 25 的 param1 上传, 解码后存在 cmd.p1 第 15 位.
-    // (替代了旧的 TANG_LOOP_DEG 阈值方案; GCS 信息更准, 不再需要飞控自己估算 arc.)
-    const bool needs_half_loop = (cmd.p1 & 0x8000) != 0;
-    const int32_t sum_cd_threshold = needs_half_loop ? 18000 : 1;
+    // 标志由 do_tangent_loiter 用公切线算好存到 tangent_loiter_is_big_arc.
+    const int32_t sum_cd_threshold = tangent_loiter_is_big_arc ? 18000 : 1;
 
-    update_loiter(cmd.p1 & 0x7FFF);     // 半径只在低 15 位, 屏蔽掉 isBigArc 高位
+    update_loiter(cmd.p1 & 0x7FFF);     // 半径只在低 15 位, 屏蔽掉 GCS 兼容用的 isBigArc 高位
 
     if (condition_value == 0) {
         if (labs(loiter.sum_cd) >= sum_cd_threshold

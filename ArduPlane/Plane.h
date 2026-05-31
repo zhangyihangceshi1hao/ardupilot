@@ -991,7 +991,7 @@ private:
                                          const Location &next,
                                          float R_m, bool ccw) const;
     bool  tangent_loiter_entry_reached;   // 内部状态机: 阶段 1 vs 阶段 2
-    float tangent_loiter_arc_deg;         // entry→exit 沿圆方向弧角 (deg, 0..360); 默认 360
+    bool  tangent_loiter_is_big_arc;      // arc>180° → 强制飞半圈再 verify_heading 退出
     bool verify_RTL();
     bool verify_continue_and_change_alt();
     bool verify_wait_delay();

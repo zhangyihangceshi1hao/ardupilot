@@ -592,8 +592,6 @@ public:
     AP_SystemID systemid;
 #endif
 
-    // NAV_TANGENT_LOITER full-loop cutoff: θ >= 此值强制至少 1 圈, 否则短弧自然飞
-    AP_Float tangent_loiter_loop_deg;
 };
 
 extern const AP_Param::Info var_info[];
