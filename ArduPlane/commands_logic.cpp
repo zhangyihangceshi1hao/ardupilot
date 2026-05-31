@@ -565,7 +565,8 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
 {
     Location center = cmd.content.location;
     center.sanitize(current_loc);
-    const float R = cmd.p1;
+    // cmd.p1 编码: 低 15 位 = R (m), 第 15 位 (0x8000) = isBigArc (GCS 算的大弧标志)
+    const float R = static_cast<float>(cmd.p1 & 0x7FFF);
     const bool ccw = cmd.content.location.loiter_ccw;
 
     // 算切线进入点
@@ -575,26 +576,9 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
     entry.relative_alt = center.relative_alt;
     entry.terrain_alt = center.terrain_alt;
 
-    // 算 θ = entry → exit 沿圆方向弧角 (= 飞机第 1 次自然飞到 exit 走过的角度).
-    //   <= TANG_LOOP_DEG → 阈值 sum_cd >= 1     (= 沿弧自然退出, 不绕冤枉圈)
-    //   >  TANG_LOOP_DEG → 阈值 sum_cd >= 18000 (= 强制飞半圈再 verify_heading 退出)
-    // 默认 arc=360 (= 没下一个 nav cmd 时, 触发半圈保护).
-    float arc_deg = 360.0f;
-    AP_Mission::Mission_Command next_cmd;
-    const uint16_t next_idx = mission.get_current_nav_index() + 1;
-    if (mission.get_next_nav_cmd(next_idx, next_cmd)) {
-        const Location next_pos = next_cmd.content.location;
-        const Location exit_pt = compute_tangent_exit_point(center, next_pos, R, ccw);
-        // exit 退化 (= next 在圆内) → arc_deg 保持 360, 强制 1 圈
-        if (!center.same_latlon_as(exit_pt)) {
-            const float entry_brg = center.get_bearing_to(entry) * 0.01f;
-            const float exit_brg  = center.get_bearing_to(exit_pt) * 0.01f;
-            // CW: bearing 沿圆递增; CCW: bearing 递减
-            arc_deg = ccw ? fmodf(entry_brg - exit_brg + 360.0f, 360.0f)
-                          : fmodf(exit_brg  - entry_brg + 360.0f, 360.0f);
-        }
-    }
-    tangent_loiter_arc_deg = arc_deg;
+    // isBigArc 直接从 cmd.p1 高位读 (GCS 用公切线算好上传, 飞控不再自己算 arc).
+    const bool is_big_arc = (cmd.p1 & 0x8000) != 0;
+    tangent_loiter_arc_deg = is_big_arc ? 360.0f : 0.0f;     // 仅供 send_text 日志显示用
 
     // 把 entry 设成 next WP; prev_WP_loc 自动变成上一段终点
     set_next_WP(entry);
@@ -603,9 +587,8 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
     tangent_loiter_entry_reached = false;
     condition_value = 0;     // 高度门控状态 (LOITER 阶段用)
 
-    gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: arc=%d deg (%s)",
-                    int(arc_deg),
-                    (arc_deg > g2.tangent_loiter_loop_deg) ? "half-loop" : "short-arc");
+    gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: R=%dm (%s)",
+                    int(R), is_big_arc ? "big-arc, half-loop" : "small-arc");
 }
 
 bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
@@ -632,14 +615,15 @@ bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
         return false;
     }
 
-    // === 阶段 2: LOITER 行为 — 按 entry→exit 弧角 θ 选 sum_cd 阈值 ===
-    //   θ <= TANG_LOOP_DEG → 阈值 1 (= 短/中弧, 跟标准 LOITER_TO_ALT 一致, heading 对了就退)
-    //   θ >  TANG_LOOP_DEG → 阈值 18000 (= 半圈, 50%, 强制飞 180° 再 verify_heading)
-    // TANG_LOOP_DEG 是飞控 g2 参数, 默认 300 (= 大弧 wp 强制飞 180° 防止刚切入立刻退出), 可在 GCS 实时调
-    const bool needs_half_loop = (tangent_loiter_arc_deg > g2.tangent_loiter_loop_deg);
+    // === 阶段 2: LOITER 行为 — 按 GCS 写的 isBigArc 标志选 sum_cd 阈值 ===
+    //   isBigArc=0 → 阈值 1     (= 短弧, 跟标准 LOITER_TO_ALT 一致, heading 对了就退)
+    //   isBigArc=1 → 阈值 18000 (= 半圈, 强制飞 180° 再 verify_heading 退出)
+    // 标志由 GCS 用公切线 + arc>180 算好后通过 cmd 25 的 param1 上传, 解码后存在 cmd.p1 第 15 位.
+    // (替代了旧的 TANG_LOOP_DEG 阈值方案; GCS 信息更准, 不再需要飞控自己估算 arc.)
+    const bool needs_half_loop = (cmd.p1 & 0x8000) != 0;
     const int32_t sum_cd_threshold = needs_half_loop ? 18000 : 1;
 
-    update_loiter(cmd.p1);
+    update_loiter(cmd.p1 & 0x7FFF);     // 半径只在低 15 位, 屏蔽掉 isBigArc 高位
 
     if (condition_value == 0) {
         if (labs(loiter.sum_cd) >= sum_cd_threshold

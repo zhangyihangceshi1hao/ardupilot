@@ -1167,7 +1167,13 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
 
     case MAV_CMD_NAV_TANGENT_LOITER:                                         // NAV_TANGENT_LOITER (自定义)
         // 字段语义跟 NAV_LOITER_TO_ALT 一致, 但 do_* 会额外算切线进入.
-        cmd.p1 = fabsf(packet.param2);
+        // cmd.p1 编码: 低 15 位 = R (uint16), 第 15 位 (= 0x8000) = isBigArc 标志.
+        // (GCS 用公切线算 arc>180° → param1=1, 飞控读到强制飞半圈再 verify_heading 退出.)
+        {
+            const uint16_t R_u16  = static_cast<uint16_t>(fabsf(packet.param2)) & 0x7FFF;
+            const uint16_t bigArc = (packet.param1 > 0.5f) ? 0x8000u : 0u;
+            cmd.p1 = R_u16 | bigArc;
+        }
         cmd.content.location.loiter_ccw = (packet.param2 < 0);
         cmd.content.location.loiter_xtrack = (packet.param4 > 0);
         break;
@@ -1700,9 +1706,14 @@ bool AP_Mission::mission_cmd_to_mavlink_int(const AP_Mission::Mission_Command& c
         break;
 
     case MAV_CMD_NAV_TANGENT_LOITER:                                         // NAV_TANGENT_LOITER (自定义)
-        packet.param2 = cmd.p1;
-        if (cmd.content.location.loiter_ccw) {
-            packet.param2 = -packet.param2;
+        // cmd.p1 编码: 低 15 位 = R, 第 15 位 = isBigArc. 跟 mavlink_to_cmd 对称.
+        {
+            const uint16_t R_u16 = cmd.p1 & 0x7FFF;
+            packet.param1 = (cmd.p1 & 0x8000) ? 1.0f : 0.0f;
+            packet.param2 = R_u16;
+            if (cmd.content.location.loiter_ccw) {
+                packet.param2 = -packet.param2;
+            }
         }
         packet.param4 = cmd.content.location.loiter_xtrack;
         break;
