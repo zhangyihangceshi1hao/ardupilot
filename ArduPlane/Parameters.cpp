@@ -1304,12 +1304,12 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
 #endif
 
     // @Param: TANG_LOOP_DEG
-    // @DisplayName: Tangent Loiter Full-Loop Cutoff
-    // @Description: NAV_TANGENT_LOITER 弧角阈值. entry→exit 弧角 θ >= 此值时强制至少绕 1 圈; 否则按短弧自然飞 θ° 退出. 360 = 关闭强制 (= 所有 wp 走短弧)
+    // @DisplayName: Tangent Loiter Half-Loop Cutoff
+    // @Description: NAV_TANGENT_LOITER 弧角阈值. entry→exit 弧角 θ > 此值时强制飞半圈 (180°) 再 verify_heading 退出; 否则按短弧自然飞 θ° 退出. 360 = 关闭强制 (= 所有 wp 走短弧)
     // @Range: 0 360
     // @Units: deg
     // @User: Standard
-    AP_GROUPINFO("TANG_LOOP_DEG", 39, ParametersG2, tangent_loiter_loop_deg, 359.0f),
+    AP_GROUPINFO("TANG_LOOP_DEG", 39, ParametersG2, tangent_loiter_loop_deg, 300.0f),
 
     AP_GROUPEND
 };

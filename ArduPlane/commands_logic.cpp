@@ -576,9 +576,9 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
     entry.terrain_alt = center.terrain_alt;
 
     // 算 θ = entry → exit 沿圆方向弧角 (= 飞机第 1 次自然飞到 exit 走过的角度).
-    //   < 180° → 阈值用 sum_cd > 1 (= 沿弧自然退出, 不绕冤枉圈)
-    //   ≥ 180° → 阈值用 sum_cd >= 36000 (= 强制 1 圈 + 第 2 次到 exit 退出)
-    // 默认 360° (= 没下一个 nav cmd 时保守强制 1 圈).
+    //   <= TANG_LOOP_DEG → 阈值 sum_cd >= 1     (= 沿弧自然退出, 不绕冤枉圈)
+    //   >  TANG_LOOP_DEG → 阈值 sum_cd >= 18000 (= 强制飞半圈再 verify_heading 退出)
+    // 默认 arc=360 (= 没下一个 nav cmd 时, 触发半圈保护).
     float arc_deg = 360.0f;
     AP_Mission::Mission_Command next_cmd;
     const uint16_t next_idx = mission.get_current_nav_index() + 1;
@@ -605,7 +605,7 @@ void Plane::do_tangent_loiter(const AP_Mission::Mission_Command& cmd)
 
     gcs().send_text(MAV_SEVERITY_INFO, "TangentLoiter: arc=%d deg (%s)",
                     int(arc_deg),
-                    (arc_deg >= g2.tangent_loiter_loop_deg) ? "full-loop" : "short-arc");
+                    (arc_deg > g2.tangent_loiter_loop_deg) ? "half-loop" : "short-arc");
 }
 
 bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
@@ -633,11 +633,11 @@ bool Plane::verify_tangent_loiter(const AP_Mission::Mission_Command& cmd)
     }
 
     // === 阶段 2: LOITER 行为 — 按 entry→exit 弧角 θ 选 sum_cd 阈值 ===
-    //   θ <  TANG_LOOP_DEG → 阈值 1 (= 短/中弧, 跟标准 LOITER_TO_ALT 一致)
-    //   θ >= TANG_LOOP_DEG → 阈值 36000 (= 强制至少 1 圈)
-    // TANG_LOOP_DEG 是飞控 g2 参数, 默认 359 (= 几乎所有 wp 走短弧), 可在 GCS 实时调
-    const bool needs_full_loop = (tangent_loiter_arc_deg >= g2.tangent_loiter_loop_deg);
-    const int32_t sum_cd_threshold = needs_full_loop ? 36000 : 1;
+    //   θ <= TANG_LOOP_DEG → 阈值 1 (= 短/中弧, 跟标准 LOITER_TO_ALT 一致, heading 对了就退)
+    //   θ >  TANG_LOOP_DEG → 阈值 18000 (= 半圈, 50%, 强制飞 180° 再 verify_heading)
+    // TANG_LOOP_DEG 是飞控 g2 参数, 默认 300 (= 大弧 wp 强制飞 180° 防止刚切入立刻退出), 可在 GCS 实时调
+    const bool needs_half_loop = (tangent_loiter_arc_deg > g2.tangent_loiter_loop_deg);
+    const int32_t sum_cd_threshold = needs_half_loop ? 18000 : 1;
 
     update_loiter(cmd.p1);
 
