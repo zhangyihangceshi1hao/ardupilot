@@ -975,6 +975,7 @@ bool AP_GPS_NMEA::get_lag(float &lag_sec) const
 #if AP_GPS_NMEA_UNICORE_ENABLED
     case AP_GPS::GPS_TYPE_UNICORE_MOVINGBASE_NMEA:
     case AP_GPS::GPS_TYPE_UNICORE_NMEA:
+    case AP_GPS::GPS_TYPE_UM982:
         lag_sec = 0.14;
         break;
 #endif // AP_GPS_NMEA_UNICORE_ENABLED
