@@ -1383,9 +1383,15 @@ void AP_GPS::send_mavlink_gps_raw(mavlink_channel_t chan)
     horizontal_accuracy(0, hacc);
     vertical_accuracy(0, vacc);
     speed_accuracy(0, sacc);
+    // time_usec: 使用 GPS 校准的连续 UTC 时间(两次定位之间用飞控时钟插值),
+    // 保证每次发包时间戳都不同;未完成 GPS 对时前退回最后一次定位时刻,避免发 0。
+    uint64_t time_us = time_epoch_usec(0);
+    if (time_us == 0) {
+        time_us = last_fix_time_ms(0) * (uint64_t)1000;
+    }
     mavlink_msg_gps_raw_int_send(
         chan,
-        last_fix_time_ms(0)*(uint64_t)1000,
+        time_us,
         status(0),
         loc.lat,        // in 1E7 degrees
         loc.lng,        // in 1E7 degrees
