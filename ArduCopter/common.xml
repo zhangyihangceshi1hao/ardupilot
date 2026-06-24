@@ -6624,7 +6624,14 @@
     <message id="12921" name="PPS_TCP">
       <description>Command to set or control the jamming frequency in Hz.</description>
       <field type="int32_t" name="frequency">Radio frequency in Hz</field>
-      <field type="uint8_t" name="enable">Enable state: 0=Disable, 1=Enable</field> 
+      <field type="uint8_t" name="enable">Enable state: 0=Disable, 1=Enable</field>
+    </message>
+    <!--修改: 飞控回馈外设开关状态-->
+    <message id="12922" name="PPS_STATUS">
+      <description>Feedback of the jamming device on/off state after a PPS_TCP command was executed.</description>
+      <field type="int32_t" name="frequency">Radio frequency in Hz that was commanded</field>
+      <field type="uint8_t" name="enable">Current device state: 0=Disabled/Off, 1=Enabled/On</field>
+      <field type="uint8_t" name="result">Execution result: 0=Failed, 1=Success</field>
     </message>
   </messages>
 </mavlink>

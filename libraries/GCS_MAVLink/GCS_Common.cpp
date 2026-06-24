@@ -4277,14 +4277,21 @@ void GCS_MAVLINK::handle_control_pps_serial(const mavlink_message_t &msg){
     if (pps_instance != nullptr) {
         // 调用实例的方法
         bool success = pps_instance->send_controller(pps_serial.enable, pps_serial.frequency);
-       
+
         if (success) {
             gcs().send_text(MAV_SEVERITY_INFO, "串口PPS 命令执行成功");
         } else {
             gcs().send_text(MAV_SEVERITY_ERROR, "串口PPS 命令执行失败");
         }
+
+        // 回馈外设当前开关状态：成功时上报命令的 enable 状态，失败时不改变设备故记为关闭(0)
+        const uint8_t device_state = success ? pps_serial.enable : 0;
+        const uint8_t result = success ? 1 : 0;
+        mavlink_msg_pps_status_send(chan, pps_serial.frequency, device_state, result);
     } else {
         gcs().send_text(MAV_SEVERITY_ERROR, "PPS Serial 实例未初始化");
+        // 实例未初始化也回馈一帧：关闭(0) + 失败(0)
+        mavlink_msg_pps_status_send(chan, pps_serial.frequency, 0, 0);
     }
 }
 //修改
