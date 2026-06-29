@@ -4272,6 +4272,10 @@ void GCS_MAVLINK::handle_control_pps_serial(const mavlink_message_t &msg){
     gcs().send_text(MAV_SEVERITY_INFO, "解析 PPS 命令: enable=%d, freq=%" PRId32,
                     pps_serial.enable, pps_serial.frequency);
 
+    // 计算需要回传的状态：device_state 为设备当前开关状态，result 为命令执行结果
+    uint8_t device_state = 0;
+    uint8_t result = 0;
+
     // 正确的方式：获取单例实例
     AP_PPS_Serial* pps_instance = AP_PPS_Serial::get_singleton();
     if (pps_instance != nullptr) {
@@ -4285,13 +4289,27 @@ void GCS_MAVLINK::handle_control_pps_serial(const mavlink_message_t &msg){
         }
 
         // 回馈外设当前开关状态：成功时上报命令的 enable 状态，失败时不改变设备故记为关闭(0)
-        const uint8_t device_state = success ? pps_serial.enable : 0;
-        const uint8_t result = success ? 1 : 0;
-        mavlink_msg_pps_status_send(chan, pps_serial.frequency, device_state, result);
+        device_state = success ? pps_serial.enable : 0;
+        result = success ? 1 : 0;
     } else {
         gcs().send_text(MAV_SEVERITY_ERROR, "PPS Serial 实例未初始化");
         // 实例未初始化也回馈一帧：关闭(0) + 失败(0)
-        mavlink_msg_pps_status_send(chan, pps_serial.frequency, 0, 0);
+        device_state = 0;
+        result = 0;
+    }
+
+    // 无论命令从哪个串口/链路收到，都向所有已激活的 MAVLink 通道回传状态
+    for (uint8_t i = 0; i < gcs().num_gcs(); i++) {
+        GCS_MAVLINK *link = gcs().chan(i);
+        if (link == nullptr) {
+            continue;
+        }
+        const mavlink_channel_t out_chan = link->get_chan();
+        // 确保该通道有足够空间发送，避免半帧
+        if (!HAVE_PAYLOAD_SPACE(out_chan, PPS_STATUS)) {
+            continue;
+        }
+        mavlink_msg_pps_status_send(out_chan, pps_serial.frequency, device_state, result);
     }
 }
 //修改
