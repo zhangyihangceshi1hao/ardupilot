@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>使用说明：光电吊舱 Guided 指点飞行指令源优先级</title>
+<style>
+body { font-family: -apple-system, "Microsoft YaHei", sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1a1a1a; }
+h1 { border-bottom: 2px solid #2563eb; padding-bottom: 12px; }
+h2 { color: #2563eb; margin-top: 32px; }
+h3 { color: #374151; margin-top: 24px; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+th, td { border: 1px solid #d1d5db; padding: 10px 14px; text-align: left; }
+th { background: #f3f4f6; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; }
+.note { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>使用说明：光电吊舱 Guided 指点飞行指令源优先级</h1>
+<h2>1. 功能概述</h2>
+<p>启用后，飞控在 GUIDED 模式下优先响应吊舱直连串口的指点飞行指令。一旦吊舱开始发送指令，地面站/数传通道的指令被屏蔽。地面站可通过发送 MAVLink 消息收回控制权。</p>
+<h2>2. 参数配置</h2>
+<h3>2.1 确定吊舱的 MAVLink 通道号</h3>
+<table>
+<tr><th>SERIAL 端口</th><th>MAVLink 通道</th><th>典型用途</th></tr>
+<tr><td>SERIAL0</td><td>chan 0</td><td>USB / 控制台</td></tr>
+<tr><td>SERIAL1</td><td>chan 1</td><td>数传 1（通常接地面站）</td></tr>
+<tr><td>SERIAL2</td><td>chan 2</td><td>数传 2</td></tr>
+<tr><td>SERIAL3</td><td>chan 3</td><td>数传 3</td></tr>
+<tr><td>SERIAL4</td><td>chan 4</td><td>数传 4（常接 companion computer 或吊舱）</td></tr>
+<tr><td>SERIAL5</td><td>chan 5</td><td>数传 5</td></tr>
+<tr><td>SERIAL6</td><td>chan 6</td><td>数传 6</td></tr>
+</table>
+<h3>2.2 设置参数</h3>
+<table>
+<tr><th>参数</th><th>建议值</th><th>说明</th></tr>
+<tr><td><code>GUID_EOIR_CHAN</code></td><td>吊舱所在 MAVLink 通道号</td><td>例：SERIAL4=chan4，设为 4；0=禁用</td></tr>
+<tr><td><code>GUID_EOIR_PRIO</code></td><td>1</td><td>1=启用吊舱优先，0=禁用</td></tr>
+</table>
+<h2>3. 地面站操作</h2>
+<h3>3.1 正常使用</h3>
+<p>地面站无需特殊操作。吊舱开始发指令后，地面站 guided 指令自动被屏蔽。</p>
+<h3>3.2 收回控制权（RESET）</h3>
+<p>当地面站需要主动接管时，发送 MAVLink 消息：</p>
+<pre>MAV_CMD_GUIDED_SOURCE_PRIORITY (msgid=12923)
+  action = 0 (RESET)</pre>
+<p>发送后地面站指令立即恢复生效。</p>
+<h4>Mission Planner 操作：</h4>
+<ol>
+<li>打开 MAVLink 检查器 → 消息标签</li>
+<li>找到消息 ID 12923（MAV_CMD_GUIDED_SOURCE_PRIORITY）</li>
+<li>action 字段填入 0</li>
+<li>点击发送消息</li>
+</ol>
+<h3>3.3 启用吊舱优先级（ENABLE）</h3>
+<pre>MAV_CMD_GUIDED_SOURCE_PRIORITY (msgid=12923)
+  action = 1 (ENABLE)</pre>
+<h2>4. 典型工作流程</h2>
+<table>
+<tr><th>阶段</th><th>吊舱行为</th><th>地面站行为</th><th>控制权</th></tr>
+<tr><td>初始</td><td>无指令</td><td>可能发指令</td><td>地面站</td></tr>
+<tr><td>吊舱锁定</td><td>发送指点飞行指令</td><td>指令被屏蔽</td><td><strong>吊舱</strong></td></tr>
+<tr><td>吊舱持续引导</td><td>持续发指令</td><td>指令持续被屏蔽</td><td><strong>吊舱</strong></td></tr>
+<tr><td>地面站接管</td><td>停止发指令</td><td>发送 RESET + 指点飞行指令</td><td><strong>地面站</strong></td></tr>
+<tr><td>吊舱重新抢占</td><td>发送指点飞行指令</td><td>指令被屏蔽</td><td><strong>吊舱</strong></td></tr>
+</table>
+<h2>5. 注意事项</h2>
+<ul>
+<li>功能仅在 <strong>GUIDED 模式</strong>下生效，其他飞行模式不受影响</li>
+<li><code>GUID_EOIR_PRIO=0</code> 时功能完全禁用，行为与修改前一致</li>
+<li>地面站收回控制权后，吊舱随时可通过再次发指令重新锁定</li>
+<li>若吊舱故障停止发指令，地面站需<strong>主动发送 RESET 消息</strong>才能接管（无自动超时恢复）</li>
+<li>编译前需用修改后的 common.xml 重新生成 MAVLink 头文件</li>
+</ul>
+</body>
+</html>

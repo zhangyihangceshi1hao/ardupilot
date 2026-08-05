@@ -1201,6 +1201,15 @@ void GCS_MAVLINK_Copter::handle_message(const mavlink_message_t &msg)
 #if MODE_GUIDED_ENABLED == ENABLED
     case MAVLINK_MSG_ID_SET_ATTITUDE_TARGET:   // MAV ID: 82
     {
+        // EO/IR gimbal guided priority check
+        if (copter.g2.guided_eoir_prio > 0) {
+            if (chan == copter.g2.guided_eoir_chan) {
+                copter.set_guided_eoir_active();
+            } else if (copter.guided_eoir_active()) {
+                break;
+            }
+        }
+
         // decode packet
         mavlink_set_attitude_target_t packet;
         mavlink_msg_set_attitude_target_decode(&msg, &packet);
@@ -1276,6 +1285,15 @@ void GCS_MAVLINK_Copter::handle_message(const mavlink_message_t &msg)
 
     case MAVLINK_MSG_ID_SET_POSITION_TARGET_LOCAL_NED:     // MAV ID: 84
     {
+        // EO/IR gimbal guided priority check
+        if (copter.g2.guided_eoir_prio > 0) {
+            if (chan == copter.g2.guided_eoir_chan) {
+                copter.set_guided_eoir_active();
+            } else if (copter.guided_eoir_active()) {
+                break;
+            }
+        }
+
         // decode packet
         mavlink_set_position_target_local_ned_t packet;
         mavlink_msg_set_position_target_local_ned_decode(&msg, &packet);
@@ -1384,6 +1402,15 @@ void GCS_MAVLINK_Copter::handle_message(const mavlink_message_t &msg)
 
     case MAVLINK_MSG_ID_SET_POSITION_TARGET_GLOBAL_INT:    // MAV ID: 86
     {
+        // EO/IR gimbal guided priority check
+        if (copter.g2.guided_eoir_prio > 0) {
+            if (chan == copter.g2.guided_eoir_chan) {
+                copter.set_guided_eoir_active();
+            } else if (copter.guided_eoir_active()) {
+                break;
+            }
+        }
+
         // decode packet
         mavlink_set_position_target_global_int_t packet;
         mavlink_msg_set_position_target_global_int_decode(&msg, &packet);
@@ -1483,6 +1510,21 @@ void GCS_MAVLINK_Copter::handle_message(const mavlink_message_t &msg)
             copter.mode_guided.init(true);
         }
 
+        break;
+    }
+
+    // EO/IR gimbal guided priority control message
+    case MAVLINK_MSG_ID_MAV_CMD_GUIDED_SOURCE_PRIORITY:
+    {
+        mavlink_mav_cmd_guided_source_priority_t packet;
+        mavlink_msg_mav_cmd_guided_source_priority_decode(&msg, &packet);
+        if (packet.action == (uint8_t)Copter::GuidedSourcePriority::RESET) {
+            copter.reset_guided_eoir_active();
+            gcs().send_text(MAV_SEVERITY_INFO, "EO/IR guided priority reset by GCS");
+        } else if (packet.action == (uint8_t)Copter::GuidedSourcePriority::EOIR_ACTIVE) {
+            copter.set_guided_eoir_active();
+            gcs().send_text(MAV_SEVERITY_INFO, "EO/IR guided priority enabled by GCS");
+        }
         break;
     }
 #endif

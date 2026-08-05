@@ -1046,9 +1046,23 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Range: 0.1 5
     // @User: Advanced
     AP_GROUPINFO("GUID_TIMEOUT", 46, ParametersG2, guided_timeout, 3.0),
+
+    // @Param: GUID_EOIR_CHAN
+    // @DisplayName: EO/IR gimbal guided channel
+    // @Description: MAVLink channel number for the EO/IR gimbal. When GUID_EOIR_PRIO=1, guided commands on this channel lock out GCS guided commands. 0=disabled
+    // @Values: 0:Disabled,1:chan1,2:chan2,3:chan3,4:chan4,5:chan5,6:chan6
+    // @User: Advanced
+    AP_GROUPINFO("GUID_EOIR_CHAN", 47, ParametersG2, guided_eoir_chan, 0),
+
+    // @Param: GUID_EOIR_PRIO
+    // @DisplayName: EO/IR gimbal guided priority
+    // @Description: When enabled, guided commands from GUID_EOIR_CHAN lock out GCS guided commands. GCS can reset via MAV_CMD_GUIDED_SOURCE_PRIORITY message.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    AP_GROUPINFO("GUID_EOIR_PRIO", 48, ParametersG2, guided_eoir_prio, 0),
 #endif
 
-    // ACRO_PR_RATE (47), ACRO_Y_RATE (48), PILOT_Y_RATE (49) and PILOT_Y_EXPO (50) moved to command model class
+    // ACRO_PR_RATE (49), ACRO_Y_RATE (50), PILOT_Y_RATE (51) and PILOT_Y_EXPO (52) moved to command model class
 
     // @Param: SURFTRAK_MODE
     // @DisplayName: Surface Tracking Mode

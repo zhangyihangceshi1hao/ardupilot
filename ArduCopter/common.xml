@@ -6633,5 +6633,10 @@
       <field type="uint8_t" name="enable">Current device state: 0=Disabled/Off, 1=Enabled/On</field>
       <field type="uint8_t" name="result">Execution result: 0=Failed, 1=Success</field>
     </message>
+    <!-- 光电吊舱 EO/IR guided source priority -->
+    <message id="12923" name="MAV_CMD_GUIDED_SOURCE_PRIORITY">
+      <description>Set or reset guided mode control source priority.</description>
+      <field type="uint8_t" name="action">Action: 0=Reset EO/IR priority, 1=Enable EO/IR priority.</field>
+    </message>
   </messages>
 </mavlink>

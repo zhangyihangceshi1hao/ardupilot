@@ -675,6 +675,8 @@ public:
 
 #if MODE_GUIDED_ENABLED == ENABLED
     AP_Float guided_timeout;
+    AP_Int8 guided_eoir_chan;  // MAVLink channel for EO/IR gimbal (0=disabled)
+    AP_Int8 guided_eoir_prio;  // 0=disabled, 1=EO/IR priority over GCS
 #endif
 
     AP_Int8                 surftrak_mode;

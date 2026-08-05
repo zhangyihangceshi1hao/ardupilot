@@ -834,6 +834,9 @@ Copter::Copter(void)
     pos_variance_filt(FS_EKF_FILT_DEFAULT),
     vel_variance_filt(FS_EKF_FILT_DEFAULT),
     hgt_variance_filt(FS_EKF_FILT_DEFAULT)
+#if MODE_GUIDED_ENABLED == ENABLED
+    , _guided_eoir_active(false)
+#endif
 {
 }
 

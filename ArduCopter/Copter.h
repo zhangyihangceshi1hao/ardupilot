@@ -650,6 +650,12 @@ private:
         RELEASE_GRIPPER_ON_THRUST_LOSS = (1<<2),  // 4
     };
 
+    // EO/IR gimbal guided mode source priority
+    enum class GuidedSourcePriority : uint8_t {
+        RESET  = 0,  // clear EO/IR lock, return control to GCS
+        EOIR_ACTIVE = 1,  // enable EO/IR priority mode
+    };
+
     static constexpr int8_t _failsafe_priorities[] = {
                                                       (int8_t)FailsafeAction::TERMINATE,
                                                       (int8_t)FailsafeAction::LAND,
@@ -1009,6 +1015,7 @@ private:
 #endif
 #if MODE_GUIDED_ENABLED == ENABLED
     ModeGuided mode_guided;
+    bool _guided_eoir_active;  // true when EO/IR gimbal has locked guided control
 #endif
     ModeLand mode_land;
 #if MODE_LOITER_ENABLED == ENABLED
@@ -1061,6 +1068,13 @@ private:
     void exit_mode(Mode *&old_flightmode, Mode *&new_flightmode);
 
 public:
+    // EO/IR gimbal guided mode source priority
+#if MODE_GUIDED_ENABLED == ENABLED
+    bool guided_eoir_active() const { return _guided_eoir_active; }
+    void set_guided_eoir_active() { _guided_eoir_active = true; }
+    void reset_guided_eoir_active() { _guided_eoir_active = false; }
+#endif
+
     void failsafe_check();      // failsafe.cpp
 };
 

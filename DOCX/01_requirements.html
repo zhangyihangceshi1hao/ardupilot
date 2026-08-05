@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>需求理解：光电吊舱（EO/IR）与地面雷达指点飞行指令优先级</title>
+<style>
+body { font-family: -apple-system, "Microsoft YaHei", sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1a1a1a; }
+h1 { border-bottom: 2px solid #2563eb; padding-bottom: 12px; }
+h2 { color: #2563eb; margin-top: 32px; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+th, td { border: 1px solid #d1d5db; padding: 10px 14px; text-align: left; }
+th { background: #f3f4f6; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<h1>需求理解：光电吊舱（EO/IR）与地面雷达指点飞行指令优先级</h1>
+<h2>1. 背景</h2>
+<p>无人机同时连接两个 MAVLink 控制源，两者均可发送指点飞行指令：</p>
+<table>
+<tr><th>串口</th><th>连接设备</th><th>MAVLink 通道类型</th><th>功能</th></tr>
+<tr><td>串口 A</td><td>数传电台 → 地面站/地面雷达</td><td>公共通道</td><td>发送 SET_POSITION_TARGET_GLOBAL_INT 等 Guided 指令</td></tr>
+<tr><td>串口 B</td><td>光电吊舱（EO/IR）直连</td><td>私有通道</td><td>发送同样的 Guided 指令</td></tr>
+</table>
+<h2>2. 问题</h2>
+<p>当两个源同时向飞控发送指点飞行（Guided 模式）指令时，当前代码<strong>不区分来源 MAVLink 通道</strong>，后到达的指令覆盖先到达的：</p>
+<ul>
+<li>吊舱正在引导飞机追踪目标时，地面站指令可能意外覆盖吊舱指令</li>
+<li>无法保证吊舱引导的连续性和优先级</li>
+</ul>
+<h2>3. 需求</h2>
+<ol>
+<li><strong>吊舱优先</strong>：一旦检测到光电吊舱（指定 MAVLink 通道）发送的指点飞行指令，飞控锁定只接受吊舱通道的指令，屏蔽地面站通道的指令</li>
+<li><strong>地面站可收回</strong>：地面站通过发送 MAVLink 消息 MAV_CMD_GUIDED_SOURCE_PRIORITY(action=0) 主动重置优先级，收回控制权</li>
+<li><strong>可配置</strong>：通过参数 GUID_EOIR_CHAN 指定吊舱通道号，GUID_EOIR_PRIO 启用/禁用功能</li>
+<li><strong>向后兼容</strong>：默认禁用（GUID_EOIR_PRIO=0），不影响现有飞控行为</li>
+</ol>
+<h2>4. 适用场景</h2>
+<ul>
+<li>机载光电吊舱自动追踪目标，飞控跟随吊舱指引飞行（吊舱通道优先）</li>
+<li>地面雷达同时具备引导能力作为备用</li>
+<li>吊舱故障或任务需要时，地面站操作员手动发送命令接管</li>
+</ul>
+<h2>5. 适用分支</h2>
+<p>频谱所tcp（基于 Copter-4.5.0），飞控硬件 AOIpilot / ZDYKfmuPro。</p>
+</body>
+</html>

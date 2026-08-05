@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>实现方案：光电吊舱 Guided 指点飞行指令源优先级</title>
+<style>
+body { font-family: -apple-system, 'Microsoft YaHei', sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1a1a1a; }
+h1 { border-bottom: 2px solid #2563eb; padding-bottom: 12px; }
+h2 { color: #2563eb; margin-top: 32px; }
+h3 { color: #374151; margin-top: 24px; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+th, td { border: 1px solid #d1d5db; padding: 10px 14px; text-align: left; }
+th { background: #f3f4f6; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>实现方案：光电吊舱 Guided 指点飞行指令源优先级</h1>
+
+<h2>1. 状态机设计</h2>
+<pre>
+                        吊舱通道发送
+                    SET_POSITION_TARGET_*
+   ┌──────────┐  ──────────────────────►  ┌────────────────┐
+   │          │                           │                │
+   │  NORMAL  │                           │  EOIR_LOCKED   │
+   │  (默认)  │                           │  (吊舱锁定)     │
+   │          │ ◄───────────────────────  │                │
+   └──────────┘    地面站发送              └────────────────┘
+                    MAV_CMD_GUIDED_SOURCE_PRIORITY (param1=0)
+</pre>
+
+<ul>
+<li><strong>NORMAL</strong>：所有 MAVLink 通道的指点飞行指令均接受</li>
+<li><strong>EOIR_LOCKED</strong>：仅接受吊舱通道的指令，其他通道（地面站）指令被拒绝</li>
+</ul>
+
+<h2>2. 新增 MAVLink 消息</h2>
+<table>
+<tr><th>属性</th><th>值</th></tr>
+<tr><td>消息名</td><td><code>MAV_CMD_GUIDED_SOURCE_PRIORITY</code></td></tr>
+<tr><td>消息 ID</td><td>12923</td></tr>
+<tr><td>字段</td><td><code>action</code>（uint8_t）：0 = RESET（地面站收回控制权），1 = EOIR_ACTIVE（启用吊舱优先）</td></tr>
+</table>
+<p>定义文件：<code>ArduCopter/common.xml</code>（从 <code>modules/mavlink/message_definitions/v1.0/common.xml</code> 复制，并在 <code>&lt;messages&gt;</code> 块末尾追加）</p>
+<pre>&lt;message id="12923" name="MAV_CMD_GUIDED_SOURCE_PRIORITY"&gt;
+  &lt;description&gt;Set or reset guided mode control source priority.&lt;/description&gt;
+  &lt;field type="uint8_t" name="action"&gt;Action: 0=Reset EO/IR priority, 1=Enable EO/IR priority.&lt;/field&gt;
+&lt;/message&gt;</pre>
+
+<h2>3. 新增参数</h2>
+<table>
+<tr><th>参数名</th><th>类型</th><th>默认</th><th>范围</th><th>说明</th></tr>
+<tr><td><code>GUIDED_EOIR_CHAN</code></td><td>Int8</td><td>0</td><td>0~6</td><td>吊舱直连 MAVLink 通道号（0=禁用）</td></tr>
+<tr><td><code>GUIDED_EOIR_PRIO</code></td><td>Int8</td><td>0</td><td>0~1</td><td>吊舱优先级（0=禁用, 1=启用）</td></tr>
+</table>
+
+<h2>4. 需修改的文件</h2>
+<table>
+<tr><th>#</th><th>文件</th><th>改动说明</th></tr>
+<tr><td>1</td><td><code>ArduCopter/common.xml</code></td><td><strong>已创建</strong>：复制原始 common.xml 并在末尾追加 MAV_CMD_GUIDED_SOURCE_PRIORITY (12923)</td></tr>
+<tr><td>2</td><td><code>ArduCopter/Copter.h</code></td><td>新增枚举 <code>GuidedSourcePriority</code>；新增状态变量 <code>_guided_eoir_active</code>；新增方法 <code>guided_eoir_active()</code>、<code>set_guided_eoir_active()</code>、<code>reset_guided_eoir_active()</code></td></tr>
+<tr><td>3</td><td><code>ArduCopter/Copter.cpp</code></td><td>构造函数中初始化 <code>_guided_eoir_active = false</code></td></tr>
+<tr><td>4</td><td><code>ArduCopter/GCS_Mavlink.cpp</code></td><td><code>handle_message()</code> 中 <code>SET_ATTITUDE_TARGET</code> / <code>SET_POSITION_TARGET_LOCAL_NED</code> / <code>SET_POSITION_TARGET_GLOBAL_INT</code> 三个 case 顶部增加通道来源检查；<code>handle_command_int_packet()</code> 中新增 <code>MAV_CMD_GUIDED_SOURCE_PRIORITY</code> 处理</td></tr>
+<tr><td>5</td><td><code>ArduCopter/Parameters.h</code></td><td><code>ParametersG2</code> 类中新增 <code>GUIDED_EOIR_CHAN</code>、<code>GUIDED_EOIR_PRIO</code> 参数声明</td></tr>
+<tr><td>6</td><td><code>ArduCopter/Parameters.cpp</code></td><td>参数定义与默认值</td></tr>
+</table>
+
+<h2>5. 核心判决逻辑</h2>
+
+<h3>5.1 Copter.h — 新增枚举和成员</h3>
+<pre>// 枚举定义在代码中（不在 MAVLink XML）
+enum class GuidedSourcePriority : uint8_t {
+    RESET  = 0,  // 清除吊舱锁定，地面站收回控制权
+    EOIR_ACTIVE = 1,  // 启用吊舱优先级模式
+};
+
+// Copter 类新增成员
+bool _guided_eoir_active;  // 吊舱是否已锁定控制权
+
+bool guided_eoir_active() const { return _guided_eoir_active; }
+void set_guided_eoir_active() { _guided_eoir_active = true; }
+void reset_guided_eoir_active() { _guided_eoir_active = false; }</pre>
+
+<h3>5.2 GCS_Mavlink.cpp — handle_message() 通道检查</h3>
+<p>在 <code>SET_POSITION_TARGET_GLOBAL_INT</code> / <code>SET_POSITION_TARGET_LOCAL_NED</code> / <code>SET_ATTITUDE_TARGET</code> 每个 case 的顶部、<code>in_guided_mode()</code> 检查之前插入：</p>
+<pre>if (copter.g2.guided_eoir_prio > 0) {
+    if (chan == copter.g2.guided_eoir_chan) {
+        copter.set_guided_eoir_active();   // 吊舱通道：锁定
+    } else if (copter.guided_eoir_active()) {
+        break;                              // 非吊舱通道 + 已锁定：拒绝
+    }
+}</pre>
+
+<h3>5.3 GCS_Mavlink.cpp — handle_message() 新增消息处理</h3>
+<pre>case MAVLINK_MSG_ID_MAV_CMD_GUIDED_SOURCE_PRIORITY: {
+    mavlink_mav_cmd_guided_source_priority_t packet;
+    mavlink_msg_mav_cmd_guided_source_priority_decode(&amp;msg, &amp;packet);
+    if (packet.action == (uint8_t)GuidedSourcePriority::RESET) {
+        copter.reset_guided_eoir_active();
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "EO/IR guided priority reset by GCS");
+    } else if (packet.action == (uint8_t)GuidedSourcePriority::EOIR_ACTIVE) {
+        copter.set_guided_eoir_active();
+        GCS_SEND_TEXT(MAV_SEVERITY_INFO, "EO/IR guided priority enabled by GCS");
+    }
+    break;
+}</pre>
+
+<h2>6. 影响范围</h2>
+<table>
+<tr><th>方面</th><th>影响</th></tr>
+<tr><td>现有功能</td><td>零影响 — 参数默认禁用，所有新增逻辑在 <code>GUIDED_EOIR_PRIO=0</code> 时完全旁路</td></tr>
+<tr><td>内存</td><td>+1 byte（<code>bool _guided_eoir_active</code>）</td></tr>
+<tr><td>CPU</td><td>每条 guided 指令额外 2 次整数比较 + 1 次布尔检查</td></tr>
+<tr><td>消息流量</td><td>仅在发送优先级重置命令时多一条 MAVLink 消息</td></tr>
+</table>
+
+</body>
+</html>

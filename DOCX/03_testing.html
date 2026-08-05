@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>测试方式：光电吊舱 Guided 指点飞行指令源优先级</title>
+<style>
+body { font-family: -apple-system, 'Microsoft YaHei', sans-serif; max-width: 960px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1a1a1a; }
+h1 { border-bottom: 2px solid #2563eb; padding-bottom: 12px; }
+h2 { color: #2563eb; margin-top: 32px; }
+h3 { color: #374151; margin-top: 24px; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+th, td { border: 1px solid #d1d5db; padding: 10px 14px; text-align: left; }
+th { background: #f3f4f6; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; line-height: 1.6; }
+.pass { color: #16a34a; font-weight: bold; }
+.fail { color: #dc2626; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>测试方式：光电吊舱 Guided 指点飞行指令源优先级</h1>
+
+<h2>1. 测试环境</h2>
+<table>
+<tr><th>组件</th><th>要求</th></tr>
+<tr><td>飞控</td><td>ArduCopter（AOIpilot 或 SITL）</td></tr>
+<tr><td>地面站</td><td>Mission Planner / QGC / MAVProxy</td></tr>
+<tr><td>吊舱模拟</td><td>第二个 MAVLink 连接（如 UDP 或额外串口），模拟吊舱发送 SET_POSITION_TARGET_GLOBAL_INT</td></tr>
+<tr><td>参数设置</td><td><code>GUIDED_EOIR_CHAN=吊舱通道号</code>，<code>GUIDED_EOIR_PRIO=1</code></td></tr>
+</table>
+
+<h2>2. 测试用例</h2>
+
+<h3>TC-01：吊舱锁定后地面站被屏蔽</h3>
+<table>
+<tr><th>步骤</th><th>操作</th><th>预期结果</th></tr>
+<tr><td>1</td><td>飞控切换到 GUIDED 模式</td><td>进入 GUIDED</td></tr>
+<tr><td>2</td><td>地面站发送 SET_POSITION_TARGET_GLOBAL_INT 让飞机飞向点 A</td><td>飞机飞向点 A</td></tr>
+<tr><td>3</td><td>吊舱通道发送 SET_POSITION_TARGET_GLOBAL_INT 让飞机飞向点 B</td><td><code>_guided_eoir_active</code> 变为 true，飞机飞向点 B</td></tr>
+<tr><td>4</td><td>地面站再次发送 SET_POSITION_TARGET_GLOBAL_INT 让飞机飞向点 C</td><td><span class="fail">指令被拒绝</span>，飞机继续飞向点 B</td></tr>
+</table>
+
+<h3>TC-02：地面站发送重置命令收回控制</h3>
+<table>
+<tr><th>步骤</th><th>操作</th><th>预期结果</th></tr>
+<tr><td>1</td><td>接 TC-01，当前吊舱锁定中</td><td><code>_guided_eoir_active = true</code></td></tr>
+<tr><td>2</td><td>地面站发送 MAV_CMD_GUIDED_SOURCE_PRIORITY(param1=0)</td><td><code>_guided_eoir_active</code> 变为 false</td></tr>
+<tr><td>3</td><td>地面站发送 SET_POSITION_TARGET_GLOBAL_INT 让飞机飞向点 C</td><td><span class="pass">指令被接受</span>，飞机飞向点 C</td></tr>
+</table>
+
+<h3>TC-03：吊舱重新抢占控制</h3>
+<table>
+<tr><th>步骤</th><th>操作</th><th>预期结果</th></tr>
+<tr><td>1</td><td>接 TC-02，当前 NORMAL 状态</td><td><code>_guided_eoir_active = false</code></td></tr>
+<tr><td>2</td><td>吊舱通道发送 SET_POSITION_TARGET_GLOBAL_INT</td><td><code>_guided_eoir_active</code> 变为 true，指令被接受</td></tr>
+<tr><td>3</td><td>地面站发送 SET_POSITION_TARGET_GLOBAL_INT</td><td><span class="fail">被拒绝</span></td></tr>
+</table>
+
+<h3>TC-04：功能禁用时行为不变</h3>
+<table>
+<tr><th>步骤</th><th>操作</th><th>预期结果</th></tr>
+<tr><td>1</td><td>设置 <code>GUIDED_EOIR_PRIO=0</code></td><td>功能禁用</td></tr>
+<tr><td>2</td><td>地面站发送 SET_POSITION_TARGET_GLOBAL_INT → 点 A</td><td>飞向点 A</td></tr>
+<tr><td>3</td><td>吊舱发送 SET_POSITION_TARGET_GLOBAL_INT → 点 B</td><td>飞向点 B（后发覆盖）</td></tr>
+<tr><td>4</td><td>地面站发送 SET_POSITION_TARGET_GLOBAL_INT → 点 C</td><td>飞向点 C（行为与未修改前一致）</td></tr>
+</table>
+
+<h3>TC-05：非 GUIDED 模式不受影响</h3>
+<table>
+<tr><th>步骤</th><th>操作</th><th>预期结果</th></tr>
+<tr><td>1</td><td>飞控在 LOITER 模式</td><td>—</td></tr>
+<tr><td>2</td><td>吊舱发送 SET_POSITION_TARGET_GLOBAL_INT</td><td>被忽略（仅 GUIDED 模式才处理）</td></tr>
+<tr><td>3</td><td>切换到 GUIDED 模式后吊舱再发指令</td><td>正常锁定</td></tr>
+</table>
+
+<h2>3. SITL 测试配置</h2>
+<pre># 启动 SITL
+sim_vehicle.py -v Copter --console --map
+
+# 添加第二个 MAVLink 连接模拟吊舱（UDP 14551）
+# 在 MAVProxy 中：
+output add 127.0.0.1:14551
+
+# 设置参数
+param set GUIDED_EOIR_CHAN 1    # 假设吊舱在 MAVLink 通道 1
+param set GUIDED_EOIR_PRIO 1    # 启用吊舱优先级
+
+# 切换 GUIDED 模式
+mode guided
+
+# 测试：分别从不同通道发送 guided 指令，验证优先级行为</pre>
+
+<h2>4. 验收标准</h2>
+<table>
+<tr><th>#</th><th>用例</th><th>验收条件</th></tr>
+<tr><td>1</td><td>TC-01</td><td>吊舱通道发送指令后，<code>_guided_eoir_active</code> 置 true，地面站指令被屏蔽</td></tr>
+<tr><td>2</td><td>TC-02</td><td>地面站发送重置命令后，<code>_guided_eoir_active</code> 置 false，地面站指令恢复接受</td></tr>
+<tr><td>3</td><td>TC-03</td><td>吊舱可随时发指令重新锁定</td></tr>
+<tr><td>4</td><td>TC-04</td><td>禁用功能后行为与未修改前完全一致</td></tr>
+<tr><td>5</td><td>TC-05</td><td>非 GUIDED 模式下功能不生效</td></tr>
+<tr><td>6</td><td>—</td><td>无内存泄漏、无看门狗超时、不影响实时性</td></tr>
+</table>
+
+</body>
+</html>
