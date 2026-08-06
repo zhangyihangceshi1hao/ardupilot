@@ -27,7 +27,7 @@ pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8p
 <tr><td>飞控</td><td>ArduCopter（AOIpilot 或 SITL）</td></tr>
 <tr><td>地面站</td><td>Mission Planner / QGC / MAVProxy</td></tr>
 <tr><td>吊舱模拟</td><td>第二个 MAVLink 连接（如 UDP 或额外串口），模拟吊舱发送 SET_POSITION_TARGET_GLOBAL_INT</td></tr>
-<tr><td>参数设置</td><td><code>GUIDED_EOIR_CHAN=吊舱通道号</code>，<code>GUIDED_EOIR_PRIO=1</code></td></tr>
+<tr><td>参数设置</td><td><code>GUID_EOIR_CHAN=吊舱通道号</code>，<code>GUID_EOIR_PRIO=1</code></td></tr>
 </table>
 
 <h2>2. 测试用例</h2>
@@ -60,7 +60,7 @@ pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8p
 <h3>TC-04：功能禁用时行为不变</h3>
 <table>
 <tr><th>步骤</th><th>操作</th><th>预期结果</th></tr>
-<tr><td>1</td><td>设置 <code>GUIDED_EOIR_PRIO=0</code></td><td>功能禁用</td></tr>
+<tr><td>1</td><td>设置 <code>GUID_EOIR_PRIO=0</code></td><td>功能禁用</td></tr>
 <tr><td>2</td><td>地面站发送 SET_POSITION_TARGET_GLOBAL_INT → 点 A</td><td>飞向点 A</td></tr>
 <tr><td>3</td><td>吊舱发送 SET_POSITION_TARGET_GLOBAL_INT → 点 B</td><td>飞向点 B（后发覆盖）</td></tr>
 <tr><td>4</td><td>地面站发送 SET_POSITION_TARGET_GLOBAL_INT → 点 C</td><td>飞向点 C（行为与未修改前一致）</td></tr>
@@ -83,8 +83,8 @@ sim_vehicle.py -v Copter --console --map
 output add 127.0.0.1:14551
 
 # 设置参数
-param set GUIDED_EOIR_CHAN 1    # 假设吊舱在 MAVLink 通道 1
-param set GUIDED_EOIR_PRIO 1    # 启用吊舱优先级
+param set GUID_EOIR_CHAN 1    # 假设吊舱在 MAVLink 通道 1
+param set GUID_EOIR_PRIO 1    # 启用吊舱优先级
 
 # 切换 GUIDED 模式
 mode guided

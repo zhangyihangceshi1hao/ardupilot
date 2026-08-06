@@ -53,8 +53,8 @@ pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8p
 <h2>3. 新增参数</h2>
 <table>
 <tr><th>参数名</th><th>类型</th><th>默认</th><th>范围</th><th>说明</th></tr>
-<tr><td><code>GUIDED_EOIR_CHAN</code></td><td>Int8</td><td>0</td><td>0~6</td><td>吊舱直连 MAVLink 通道号（0=禁用）</td></tr>
-<tr><td><code>GUIDED_EOIR_PRIO</code></td><td>Int8</td><td>0</td><td>0~1</td><td>吊舱优先级（0=禁用, 1=启用）</td></tr>
+<tr><td><code>GUID_EOIR_CHAN</code></td><td>Int8</td><td>0</td><td>0~6</td><td>吊舱直连 MAVLink 通道号（0=禁用）</td></tr>
+<tr><td><code>GUID_EOIR_PRIO</code></td><td>Int8</td><td>0</td><td>0~1</td><td>吊舱优先级（0=禁用, 1=启用）</td></tr>
 </table>
 
 <h2>4. 需修改的文件</h2>
@@ -64,7 +64,7 @@ pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8p
 <tr><td>2</td><td><code>ArduCopter/Copter.h</code></td><td>新增枚举 <code>GuidedSourcePriority</code>；新增状态变量 <code>_guided_eoir_active</code>；新增方法 <code>guided_eoir_active()</code>、<code>set_guided_eoir_active()</code>、<code>reset_guided_eoir_active()</code></td></tr>
 <tr><td>3</td><td><code>ArduCopter/Copter.cpp</code></td><td>构造函数中初始化 <code>_guided_eoir_active = false</code></td></tr>
 <tr><td>4</td><td><code>ArduCopter/GCS_Mavlink.cpp</code></td><td><code>handle_message()</code> 中 <code>SET_ATTITUDE_TARGET</code> / <code>SET_POSITION_TARGET_LOCAL_NED</code> / <code>SET_POSITION_TARGET_GLOBAL_INT</code> 三个 case 顶部增加通道来源检查；<code>handle_command_int_packet()</code> 中新增 <code>MAV_CMD_GUIDED_SOURCE_PRIORITY</code> 处理</td></tr>
-<tr><td>5</td><td><code>ArduCopter/Parameters.h</code></td><td><code>ParametersG2</code> 类中新增 <code>GUIDED_EOIR_CHAN</code>、<code>GUIDED_EOIR_PRIO</code> 参数声明</td></tr>
+<tr><td>5</td><td><code>ArduCopter/Parameters.h</code></td><td><code>ParametersG2</code> 类中新增 <code>GUID_EOIR_CHAN</code>、<code>GUID_EOIR_PRIO</code> 参数声明</td></tr>
 <tr><td>6</td><td><code>ArduCopter/Parameters.cpp</code></td><td>参数定义与默认值</td></tr>
 </table>
 
@@ -111,7 +111,7 @@ void reset_guided_eoir_active() { _guided_eoir_active = false; }</pre>
 <h2>6. 影响范围</h2>
 <table>
 <tr><th>方面</th><th>影响</th></tr>
-<tr><td>现有功能</td><td>零影响 — 参数默认禁用，所有新增逻辑在 <code>GUIDED_EOIR_PRIO=0</code> 时完全旁路</td></tr>
+<tr><td>现有功能</td><td>零影响 — 参数默认禁用，所有新增逻辑在 <code>GUID_EOIR_PRIO=0</code> 时完全旁路</td></tr>
 <tr><td>内存</td><td>+1 byte（<code>bool _guided_eoir_active</code>）</td></tr>
 <tr><td>CPU</td><td>每条 guided 指令额外 2 次整数比较 + 1 次布尔检查</td></tr>
 <tr><td>消息流量</td><td>仅在发送优先级重置命令时多一条 MAVLink 消息</td></tr>
