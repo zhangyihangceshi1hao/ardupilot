@@ -1586,7 +1586,7 @@ void ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
     loiter_time = 0;
     // this is the delay, stored in seconds
     // loiter_time_max = cmd.p1;
-    wp_nav->set_speed_xy(cmd.p1*100);
+    wp_nav->set_speed_xy(cmd.p1);   // p1 单位已是 cm/s
 
 
 

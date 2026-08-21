@@ -1086,8 +1086,8 @@ MAV_MISSION_RESULT AP_Mission::mavlink_int_to_mission_cmd(const mavlink_mission_
 
         cmd.p1 = (passby << 8) | (acp & 0x00FF);
 #else
-        // delay at waypoint in seconds (this is for copters???)
-        cmd.p1 = packet.param1;
+        // speed in m/s, stored as cm/s to support decimals
+        cmd.p1 = packet.param1*100;
         cmd.p2 = packet.param2;
         cmd.p3 = packet.param3;
         cmd.p4 = packet.param4;
@@ -1619,8 +1619,8 @@ bool AP_Mission::mission_cmd_to_mavlink_int(const AP_Mission::Mission_Command& c
         packet.param2 = LOWBYTE(cmd.p1);        // param 2 is acceptance radius in meters is held in low p1
         packet.param3 = HIGHBYTE(cmd.p1);       // param 3 is pass by distance in meters is held in high p1
 #else
-        // delay at waypoint in seconds
-        packet.param1 = cmd.p1;
+        // speed in m/s (stored as cm/s)
+        packet.param1 = cmd.p1 / 100.0f;
 #endif
         break;
 
